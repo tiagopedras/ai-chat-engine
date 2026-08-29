@@ -165,8 +165,15 @@
             ' title="Imports this session into Claude Desktop and carries it on there">Claude Desktop</a>' +
           '<button class="aic-btn aic-ghost" id="aicClose" type="button">Close</button>' +
         '</header>' +
-        '<div class="aic-status" id="aicStatus"></div>' +
-        '<div class="aic-body" id="aicBody"></div>' +
+        '<div class="aic-status" id="aicStatus" aria-live="polite"></div>' +
+        '<div class="aic-bodywrap">' +
+          '<div class="aic-body" id="aicBody"></div>' +
+          // Hidden unless a live run has pushed content below what is
+          // visible — see updateScrollPill(). Its own row, not inside
+          // #aicBody, because that element's innerHTML gets replaced whole
+          // on every render.
+          '<button type="button" class="aic-scrollpill aic-hidden" id="aicScrollPill">New messages ↓</button>' +
+        '</div>' +
         '<form class="aic-foot" id="aicFoot" autocomplete="off">' +
           '<textarea id="aicInput" rows="1" spellcheck="false"></textarea>' +
           '<button class="aic-btn aic-primary" id="aicSend" type="submit">Send</button>' +
@@ -216,6 +223,7 @@
         close: document.getElementById('aicClose'),
         status: document.getElementById('aicStatus'),
         body: document.getElementById('aicBody'),
+        scrollPill: document.getElementById('aicScrollPill'),
         foot: document.getElementById('aicFoot'),
         input: document.getElementById('aicInput'),
         send: document.getElementById('aicSend'),
@@ -234,10 +242,29 @@
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
       });
       dom.body.addEventListener('click', handleBodyClick);
+      // Scrolling away from the bottom mid-run stops the pull back down to
+      // it — see the wasNearBottom check in render() — and the pill offers
+      // a way back rather than leaving the tail end of a growing answer
+      // permanently out of view.
+      dom.body.addEventListener('scroll', updateScrollPill);
+      dom.scrollPill.onclick = () => {
+        dom.body.scrollTop = dom.body.scrollHeight;
+        updateScrollPill();
+      };
       // Escape closes the chat before it closes whatever is behind it.
       window.addEventListener('keydown', e => {
         if (e.key === 'Escape' && current) { e.stopPropagation(); closeChat(); }
       }, true);
+    }
+
+    function nearBottom() {
+      if (!dom) return true;
+      return dom.body.scrollHeight - dom.body.scrollTop - dom.body.clientHeight < 80;
+    }
+    function updateScrollPill() {
+      if (!dom) return;
+      const show = !nearBottom() && dom.body.scrollHeight > dom.body.clientHeight;
+      dom.scrollPill.classList.toggle('aic-hidden', !show);
     }
 
     function handleBodyClick(e) {
@@ -248,12 +275,46 @@
         if (turn) { turn.traceOpen = !turn.traceOpen; render(); }
         return;
       }
+      const retry = e.target.closest('[data-retry]');
+      if (retry) { retryTurn(+retry.dataset.retry); return; }
+      const editBtn = e.target.closest('[data-edit]');
+      if (editBtn) { editTurn(+editBtn.dataset.edit); return; }
       const copy = e.target.closest('[data-copy]');
       if (copy) {
         const text = copy.dataset.copy;
         (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject())
           .then(() => flashCopy(copy, true), () => flashCopy(copy, false));
       }
+    }
+
+    /* Retry and Edit only make sense on the last turn. claude.ai can fork a
+       new response from any earlier message in the thread; this engine
+       resumes a session by appending to it (`--resume`), so there is no way
+       to rewind to an earlier point without discarding what came after —
+       Retry here resends the same words as a new turn, Edit loads them back
+       into the composer to tweak first. Both are honest about being that
+       rather than pretending to rewrite history. */
+    function retryTurn(i) {
+      const c = current;
+      if (!c) return;
+      const turns = currentTurns();
+      const turn = turns[i];
+      const run = currentRun();
+      if (!turn || (run && run.running)) return;
+      startRun({
+        owner: c.owner, key: c.key, session: c.session, ask: turn.ask,
+        title: (sessionsFor(c.key).find(s => s.id === c.session) || {}).title || chatTitle(turn.ask),
+        mode: c.mode || 'ask',
+        turns: run ? run.turns : (c.turns || [])
+      });
+    }
+    function editTurn(i) {
+      const turns = currentTurns();
+      const turn = turns[i];
+      if (!turn || !dom) return;
+      dom.input.value = turn.ask;
+      autoGrow(dom.input);
+      dom.input.focus();
     }
     function flashCopy(btn, copied) {
       btn.textContent = copied ? 'Copied' : 'Copy failed';
@@ -457,6 +518,16 @@
         dom.status.textContent = 'New conversation in ' + home() + ' · reads only';
       }
 
+      // Send and Stop share one slot, so the primary action is never
+      // competing with another for the same glance.
+      const busy = !!(run && run.running);
+
+      // Captured before the body's content changes below: whether the
+      // reader was already at the bottom is what decides whether new
+      // content pulls the view down with it or leaves it where it was and
+      // shows the "New messages" pill instead.
+      const wasNearBottom = nearBottom();
+
       const turns = currentTurns();
       if (c.loadErr && !turns.length) {
         dom.body.innerHTML = '<p class="aic-err">' + esc(c.loadErr) + '</p>';
@@ -468,13 +539,11 @@
           : '<p class="aic-none">Nothing said yet. What it can see is everything under <code>' +
             esc(home()) + '</code>.</p>';
       } else {
-        dom.body.innerHTML = turns.map((t, i) => turnHTML(t, i)).join('');
+        dom.body.innerHTML = turns.map((t, i) => turnHTML(t, i, i === turns.length - 1 && !busy)).join('');
       }
-      if (run && run.running) dom.body.scrollTop = dom.body.scrollHeight;
+      if (run && run.running && wasNearBottom) dom.body.scrollTop = dom.body.scrollHeight;
+      updateScrollPill();
 
-      // Send and Stop share one slot, so the primary action is never
-      // competing with another for the same glance.
-      const busy = !!(run && run.running);
       dom.stop.classList.toggle('aic-hidden', !busy);
       dom.send.classList.toggle('aic-hidden', busy);
       dom.input.disabled = busy;
@@ -489,9 +558,18 @@
 
     /* Who said what is carried by the shape, not by a label: yours is a
        filled bubble pushed right, the reply is unbubbled prose running the
-       full width. No avatars, no "you:" prefix. */
-    function turnHTML(turn, i) {
+       full width. No avatars, no "you:" prefix.
+
+       `showActs` only ever holds for the last turn, and never mid-run — see
+       retryTurn()/editTurn() for why only the last one gets Retry and Edit. */
+    function turnHTML(turn, i, showActs) {
       const trace = traceHTML(turn, i);
+      const mineActs = showActs
+        ? '<div class="aic-mineacts">' +
+            '<button type="button" class="aic-mini" data-copy="' + esc(turn.ask) + '">Copy</button>' +
+            '<button type="button" class="aic-mini" data-retry="' + i + '">Retry</button>' +
+            '<button type="button" class="aic-mini" data-edit="' + i + '">Edit</button>' +
+          '</div>' : '';
       const reply = turn.reply
         ? '<div class="aic-reply">' + mdBlock(turn.reply) +
           '<div class="aic-acts"><button type="button" class="aic-copy" data-copy="' +
@@ -500,7 +578,9 @@
         ? '<p class="aic-err">' + esc(turn.error) +
           (turn.detail ? '<em>' + esc(turn.detail) + '</em>' : '') + '</p>' : '';
       return '<div class="aic-turn">' +
-        '<div class="aic-mine"><div class="aic-bubble">' + mdInline(turn.ask) + '</div></div>' +
+        '<div class="aic-mine"><div class="aic-minewrap">' +
+          '<div class="aic-bubble">' + mdInline(turn.ask) + '</div>' + mineActs +
+        '</div></div>' +
         trace + reply + err + '</div>';
     }
 
