@@ -142,6 +142,14 @@ to know the routes, a static file server with nothing behind it at all.
 
 ## Status
 
-One integration exists — `to-dos`'s board, on the `claude-from-the-card`
-branch. Not yet exercised: work mode through a real UI (no host currently
-turns it on by default), and two conversations running at once.
+Two integrations exist. `to-dos`'s board, on the `claude-from-the-card`
+branch, is the real one — a task's `chat:` tag, its own state object, its
+own drawer. `examples/notes_demo.py` is a second, deliberately unrelated app
+built to prove the module actually works somewhere else: a different guard
+header, a different owner shape, no task board at all. Both were verified
+end to end — status, sessions, a live streamed run filed under its owner
+key, transcript replay, forget, and the guard header rejecting an
+unheadered POST.
+
+Not yet exercised: work mode through a real UI (no host currently turns it
+on by default), and two conversations running at once.

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ai_chat demo — notes</title>
+<link rel="stylesheet" href="/ai-chat/chat.css">
+<style>
+  :root{ --bg:#f6f7f9; --panel:#fff; --ink:#16181d; --ink-soft:#5d636e; --ink-faint:#8b919c; --line:#e3e6ea }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#14161a; --panel:#1c1f25; --ink:#e9ebee; --ink-soft:#a5abb6; --ink-faint:#7b818c; --line:#2b3038 }
+  }
+  body{
+    font:14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    max-width:640px; margin:40px auto; padding:0 16px;
+    background:var(--bg); color:var(--ink);
+  }
+  h1{font-size:20px; margin:0 0 6px}
+  p.lede{color:var(--ink-soft); margin:0 0 28px}
+  p.lede code{background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:1px 5px}
+  .note{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; margin:0 0 16px}
+  .note h2{margin:0 0 4px; font-size:15px}
+  .note p{margin:0 0 12px; color:var(--ink-soft)}
+  .unavailable{color:var(--ink-faint); font-size:12.5px}
+</style>
+</head>
+<body>
+<h1>ai_chat demo</h1>
+<p class="lede">A few notes, each able to carry its own Claude chat thread — proof
+  <code>ai_chat</code> works somewhere other than to-dos. No task board, no drawer,
+  just this page and <code>engine.py</code>.</p>
+<div id="notes"><p class="unavailable">Loading…</p></div>
+
+<script src="/ai-chat/chat.js"></script>
+<script>
+'use strict';
+
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+let notesById = {};
+
+// A different guard header from to-dos's X-Board, on purpose — proves the
+// name isn't hardcoded on either side of the module.
+const chat = AIChat.create({
+  guardHeader: { name: 'X-Notes-Demo', value: '1' },
+  ownerLabel: id => (notesById[id] || {}).title || '',
+  onSessionsChanged: render,
+  onChange: render,
+  onStatusChanged: render,
+});
+
+async function loadNotes(){
+  const res = await fetch('/notes.json', { cache: 'no-store' });
+  const data = await res.json();
+  notesById = {};
+  data.notes.forEach(n => { notesById[n.id] = n; });
+  render();
+}
+
+async function mintKey(note){
+  const key = chat.newOwnerKey();
+  await fetch('/notes/key', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Notes-Demo': '1' },
+    body: JSON.stringify({ id: note.id, key })
+  });
+  note.chat = key;
+  return key;
+}
+
+function render(){
+  const el = document.getElementById('notes');
+  const ids = Object.keys(notesById);
+  if (!ids.length) { el.innerHTML = '<p class="unavailable">No notes.</p>'; return; }
+  el.innerHTML = ids.map(id => {
+    const n = notesById[id];
+    return '<div class="note"><h2>' + esc(n.title) + '</h2><p>' + esc(n.body) + '</p>' +
+      (chat.available()
+        ? chat.renderSection({ ownerId: n.id, ownerKey: n.chat, label: 'Chats' })
+        : '<p class="unavailable">No Claude Code CLI behind this page.</p>') +
+      '</div>';
+  }).join('');
+}
+
+document.getElementById('notes').addEventListener('click', async e => {
+  const open = e.target.closest('.aic-open');
+  if (open) { chat.openSession(open.dataset.owner, open.dataset.key, open.dataset.session); return; }
+  const forget = e.target.closest('.aic-forget');
+  if (forget) { chat.forget(forget.dataset.key, forget.dataset.session); return; }
+  const fresh = e.target.closest('.aic-addsub');
+  if (fresh) {
+    const note = notesById[fresh.dataset.owner];
+    const key = note.chat || await mintKey(note);
+    render();
+    chat.openNew(note.id, key, '');
+  }
+});
+
+loadNotes();
+chat.loadStatus();
+</script>
+</body>
+</html>
