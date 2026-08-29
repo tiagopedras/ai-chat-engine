@@ -1,0 +1,186 @@
+/* ai_chat/interface/chat.css — styling for chat.js's modal and chat list.
+ *
+ * Self-contained: every colour is one of this file's own --aic-* tokens, so
+ * the widget looks right in any host with no coordination required. The
+ * defaults below are the ones to-dos already used; a host that wants to
+ * match its own palette instead can just override these custom properties
+ * on `:root` or on whatever element it mounts under.
+ *
+ * Modelled on the claude.ai composer and thread — see
+ * ../claude-chat-interface-findings.md for the teardown this follows. The
+ * parts worth copying were the asymmetry (a bubble for you, plain prose for
+ * the reply), one slot for the primary action, and a status line whose words
+ * are the progress. The part worth not copying was hiding the trace behind
+ * a hover — it stays visible here.
+ */
+
+:root {
+  --aic-bg: #f6f7f9; --aic-panel: #ffffff; --aic-ink: #16181d;
+  --aic-ink-soft: #5d636e; --aic-ink-faint: #8b919c;
+  --aic-line: #e3e6ea; --aic-line-soft: #eef0f3;
+  --aic-accent: #2f6feb; --aic-accent-ink: #fff;
+  --aic-red: #c8322f; --aic-amber: #9a6100; --aic-chip: #f0f2f5;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --aic-bg: #14161a; --aic-panel: #1c1f25; --aic-ink: #e9ebee;
+    --aic-ink-soft: #a5abb6; --aic-ink-faint: #7b818c;
+    --aic-line: #2b3038; --aic-line-soft: #23272e; --aic-chip: #262b33;
+    --aic-red: #ff8a85; --aic-amber: #f0b355;
+  }
+}
+
+/* ---- the list of conversations under one owner key ---- */
+.aic-field{margin:0 0 14px}
+.aic-field > span{display:block; margin:0 0 6px; font-size:11.5px; font-weight:640;
+  text-transform:uppercase; letter-spacing:.03em; color:var(--aic-ink-faint)}
+.aic-sublabel{text-transform:none; letter-spacing:normal; font-weight:500}
+.aic-row{display:flex; align-items:stretch; gap:6px; margin:0 0 6px}
+.aic-open{
+  flex:1; min-width:0; text-align:left; display:flex; flex-direction:column; gap:2px;
+  border:1px solid var(--aic-line); background:var(--aic-bg); border-radius:8px; padding:7px 10px;
+  cursor:pointer; font:inherit;
+}
+.aic-open:hover{border-color:var(--aic-ink-faint)}
+.aic-rowtitle{
+  font-size:13px; font-weight:600; color:var(--aic-ink);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.aic-rowmeta{font-size:11.5px; color:var(--aic-ink-faint)}
+.aic-live{font-style:normal; color:var(--aic-accent); font-weight:600}
+.aic-work{font-style:normal; color:var(--aic-amber)}
+.aic-icon{
+  flex:none; display:flex; align-items:center; padding:0 9px; border-radius:8px;
+  border:1px solid var(--aic-line); background:var(--aic-panel); color:var(--aic-ink-soft);
+  font-size:11.5px; font-weight:600; text-decoration:none; cursor:pointer;
+}
+.aic-icon:hover{color:var(--aic-ink); border-color:var(--aic-ink-faint)}
+.aic-forget{font-size:15px; line-height:1}
+.aic-none{margin:0 0 8px; font-size:12.5px; color:var(--aic-ink-faint)}
+.aic-addsub{
+  border:1px dashed var(--aic-line); background:none; color:var(--aic-ink-soft);
+  border-radius:8px; padding:6px 10px; font-size:12.5px; font-weight:600; cursor:pointer;
+}
+.aic-addsub:hover{border-color:var(--aic-ink-faint); color:var(--aic-ink)}
+.aic-help{display:block; margin-top:6px; font-size:11.5px; color:var(--aic-ink-faint)}
+
+/* ---- the modal ---- */
+.aic-wrap{position:fixed; inset:0; z-index:80; display:none}
+.aic-wrap.aic-on{display:block}
+.aic-hidden{display:none !important}
+.aic-scrim{position:absolute; inset:0; background:rgba(6,8,12,.45); opacity:0; animation:aic-fade .18s ease forwards}
+.aic-box{
+  position:absolute; left:50%; top:50%; width:min(760px, calc(100vw - 48px));
+  height:min(720px, calc(100vh - 64px)); display:flex; flex-direction:column;
+  background:var(--aic-panel); border:1px solid var(--aic-line); border-radius:16px;
+  box-shadow:0 24px 60px rgba(6,8,12,.28); overflow:hidden;
+  transform:translate(-50%,-50%) scale(.965); opacity:0;
+  animation:aic-in .22s cubic-bezier(.2,.8,.3,1) forwards;
+  font:13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:var(--aic-ink);
+}
+@keyframes aic-fade{to{opacity:1}}
+@keyframes aic-in{to{transform:translate(-50%,-50%) scale(1); opacity:1}}
+@media (prefers-reduced-motion: reduce){
+  .aic-scrim, .aic-box{animation-duration:.01ms}
+}
+.aic-head{
+  display:flex; align-items:center; gap:8px; padding:12px 14px;
+  border-bottom:1px solid var(--aic-line-soft);
+}
+.aic-names{flex:1; min-width:0}
+.aic-names strong{display:block; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.aic-for{
+  display:block; font-size:11.5px; color:var(--aic-ink-faint);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.aic-btn{
+  border:1px solid var(--aic-line); background:var(--aic-panel); color:var(--aic-ink-soft);
+  border-radius:8px; padding:6px 12px; font-size:12.5px; font-weight:600; cursor:pointer;
+  text-decoration:none; display:inline-flex; align-items:center;
+}
+.aic-btn:hover{color:var(--aic-ink); border-color:var(--aic-ink-faint)}
+.aic-btn.aic-primary{border-color:var(--aic-accent); background:var(--aic-accent); color:var(--aic-accent-ink)}
+.aic-btn.aic-primary:hover{filter:brightness(1.07)}
+.aic-foot .aic-btn{flex:none}
+.aic-status{
+  display:flex; align-items:center; gap:8px; padding:8px 16px;
+  font-size:12px; color:var(--aic-ink-faint); border-bottom:1px solid var(--aic-line-soft);
+}
+.aic-status.aic-live{color:var(--aic-ink-soft)}
+.aic-doing{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.aic-status .aic-clock{font-style:normal; color:var(--aic-ink-faint)}
+/* The mark turns while it works. It carries no information the line beside
+   it does not — the point is that the words are the status, this is only a
+   sign of life. */
+.aic-star{
+  flex:none; width:11px; height:11px; border-radius:50%;
+  background:conic-gradient(from 0deg, var(--aic-accent), transparent 65%, var(--aic-accent));
+  animation:aic-spin 1.5s linear infinite;
+}
+@keyframes aic-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){ .aic-star{animation:none} }
+.aic-body{flex:1; min-height:0; overflow-y:auto; padding:16px}
+.aic-foot{
+  display:flex; align-items:flex-end; gap:8px; padding:12px 14px;
+  border-top:1px solid var(--aic-line-soft);
+}
+#aicInput{
+  flex:1; min-width:0; height:38px; max-height:160px; resize:none; overflow-y:auto;
+  border:1px solid var(--aic-line); background:var(--aic-bg); color:var(--aic-ink);
+  border-radius:10px; padding:9px 12px; font-size:13px; font-family:inherit; line-height:1.45;
+}
+#aicInput:focus{outline:none; border-color:var(--aic-ink-faint)}
+
+/* ---- one turn ---- */
+.aic-turn{margin:0 0 22px}
+.aic-turn:last-child{margin-bottom:4px}
+.aic-mine{display:flex; justify-content:flex-end; margin-bottom:14px}
+.aic-bubble{
+  max-width:82%; background:var(--aic-chip); border-radius:14px; padding:9px 13px;
+  font-size:13px; line-height:1.55; color:var(--aic-ink);
+}
+.aic-reply{font-size:13.5px; line-height:1.65; color:var(--aic-ink)}
+.aic-reply p{margin:0 0 10px}
+.aic-reply p:last-child{margin-bottom:0}
+.aic-reply p.aic-h{font-weight:640}
+.aic-reply ul{margin:0 0 10px; padding-left:18px}
+.aic-reply li{margin:3px 0}
+.aic-reply pre{
+  margin:0 0 10px; padding:9px 11px; background:var(--aic-bg); border:1px solid var(--aic-line);
+  border-radius:8px; overflow-x:auto; font-size:12px;
+}
+.aic-acts{margin-top:10px}
+.aic-copy{
+  border:1px solid var(--aic-line); background:var(--aic-panel); color:var(--aic-ink-soft);
+  border-radius:6px; padding:3px 9px; font-size:11.5px; font-weight:600; cursor:pointer;
+}
+.aic-copy:hover{color:var(--aic-ink); border-color:var(--aic-ink-faint)}
+.aic-copy.aic-done{color:var(--aic-accent); border-color:var(--aic-accent)}
+.aic-copy.aic-warn{color:var(--aic-red); border-color:var(--aic-red)}
+.aic-err{margin:8px 0 0; font-size:12.5px; color:var(--aic-red)}
+.aic-err em{
+  display:block; margin-top:4px; font-style:normal; font-size:11.5px;
+  color:var(--aic-ink-faint); white-space:pre-wrap;
+}
+
+/* ---- what it did ---- */
+.aic-trace{margin:0 0 12px}
+.aic-tracehead{
+  display:flex; align-items:center; gap:6px; padding:2px 0;
+  background:none; border:0; color:var(--aic-ink-faint); font-size:12px; font-weight:500; cursor:pointer;
+}
+.aic-tracehead:hover{color:var(--aic-ink-soft)}
+.aic-twist{display:inline-block; width:10px; color:var(--aic-ink-faint)}
+.aic-timeline{
+  list-style:none; margin:6px 0 0; padding:0 0 0 5px;
+  border-left:1px solid var(--aic-line);
+}
+.aic-timeline li{
+  position:relative; margin:0; padding:3px 0 3px 14px;
+  font-size:12px; color:var(--aic-ink-soft);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.aic-tick{
+  position:absolute; left:-3px; top:10px; width:5px; height:5px; border-radius:50%;
+  background:var(--aic-line); outline:2px solid var(--aic-panel);
+}
