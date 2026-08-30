@@ -162,7 +162,7 @@
             '<span class="aic-for" id="aicFor"></span>' +
           '</div>' +
           '<a class="aic-btn aic-ghost" id="aicDesktop" href="#" target="_blank" rel="noopener"' +
-            ' title="Imports this session into Claude Desktop and carries it on there">Claude Desktop</a>' +
+            ' title="Imports this session into Claude Desktop and carries it on there">Open in Claude</a>' +
           '<button class="aic-btn aic-ghost" id="aicClose" type="button">Close</button>' +
         '</header>' +
         '<div class="aic-status" id="aicStatus" aria-live="polite"></div>' +
@@ -182,6 +182,100 @@
       '</section>' +
     '</div>';
 
+  /* The five calls the widget makes, and nothing else it needs from a host.
+     `defaultTransport` below is the HTTP shape described in ../README.md —
+     what a host answers if it takes the `engine.py` + `http_glue.py` path.
+     A host with no HTTP between the page and Claude at all (an Electron
+     renderer talking over IPC, say) skips both of those files and passes
+     `opts.transport` instead, implementing this same five-method contract
+     however it actually reaches Claude. Only the methods given override the
+     default, so a host can replace just `run` and leave the rest on fetch.
+
+       status()                        -> Promise<{available, work, cwd, home, model, ...}>
+       sessions()                      -> Promise<{chats: {ownerKey: [...]}}>
+       transcript(sessionId, cwd)      -> Promise<{turns: [...], toobig}>
+       run(payload, signal)            -> AsyncIterable<string>, one stream-json line per
+                                           step (an AbortController's signal to honour;
+                                           payload is {prompt, mode, session, owner, title})
+       forget(ownerKey, sessionId)     -> Promise<void>
+
+     Errors thrown from any of these become the message shown in the modal
+     (`run`'s must already be human-readable, since it is shown verbatim), so
+     a custom transport should throw new Error('something a person can read')
+     rather than let a raw platform error escape. */
+  function makeDefaultTransport(endpoints, guard) {
+    function guardHeaders(extra) {
+      const h = Object.assign({}, extra || {});
+      h[guard.name] = guard.value;
+      return h;
+    }
+    return {
+      async status() {
+        const res = await fetch(endpoints.status + '?t=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      },
+      async sessions() {
+        const res = await fetch(endpoints.sessions + '?t=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      },
+      async transcript(sessionId, cwd) {
+        const q = '?session=' + encodeURIComponent(sessionId) + '&cwd=' + encodeURIComponent(cwd || '');
+        const res = await fetch(endpoints.transcript + q, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      },
+      async *run(payload, signal) {
+        let res;
+        try {
+          res = await fetch(endpoints.run, {
+            method: 'POST',
+            // The guard header is the point, not the content type: a form
+            // cannot set one, so a page on another origin cannot reach the
+            // host's helper without a preflight the helper does not answer.
+            headers: guardHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify(payload),
+            signal
+          });
+        } catch (err) {
+          throw new Error(signal && signal.aborted
+            ? 'Stopped.' : 'Could not reach the helper — is it still running?');
+        }
+        if (!res.ok) {
+          let msg = 'The helper refused it (HTTP ' + res.status + ')';
+          try { const j = await res.json(); if (j && j.error) msg = j.error; } catch (err) { /* not JSON */ }
+          throw new Error(msg);
+        }
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        let buf = '';
+        try {
+          for (;;) {
+            const chunk = await reader.read();
+            if (chunk.done) break;
+            buf += dec.decode(chunk.value, { stream: true });
+            let nl;
+            while ((nl = buf.indexOf('\n')) >= 0) {
+              const line = buf.slice(0, nl).trim();
+              buf = buf.slice(nl + 1);
+              if (line) yield line;
+            }
+          }
+        } catch (err) {
+          throw new Error('The answer stopped coming: ' + (err.message || err));
+        }
+      },
+      async forget(ownerKey, sessionId) {
+        await fetch(endpoints.forget, {
+          method: 'POST',
+          headers: guardHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ owner: ownerKey, session: sessionId })
+        });
+      }
+    };
+  }
+
   function create(opts) {
     opts = opts || {};
     const endpoints = Object.assign({
@@ -192,12 +286,26 @@
       run: '/claude'
     }, opts.endpoints || {});
     const guard = Object.assign({ name: 'X-Board', value: '1' }, opts.guardHeader || {});
+    const transport = Object.assign(makeDefaultTransport(endpoints, guard), opts.transport || {});
     const isLocked = opts.isLocked || function () { return false; };
     const onChange = opts.onChange || function () {};
     const onSessionsChanged = opts.onSessionsChanged || function () {};
     const onStatusChanged = opts.onStatusChanged || function () {};
+    // Fired the instant a message leaves the box — before the run starts, let
+    // alone replies — so a host can react to "this conversation just began"
+    // without waiting on a reply or polling the session list. `session` is
+    // empty on a brand new conversation's first message and set on every send
+    // after that, which is the only reliable way to tell the two apart from
+    // outside.
+    const onSend = opts.onSend || function () {};
     const placeholder = opts.placeholder || 'Ask Claude…';
-    const readOnlyHelp = opts.readOnlyHelp ||
+    // Off for a host that already *is* a Claude client — the button would
+    // just point back at itself, or at a session the host no longer tracks.
+    const desktopLink = opts.desktopLink !== false;
+    // `!= null` rather than `||`: a host passing '' to drop the line entirely
+    // is a real choice, not a missing option, and `||` would silently treat
+    // that empty string the same as never having passed one at all.
+    const readOnlyHelp = opts.readOnlyHelp != null ? opts.readOnlyHelp :
       'Each one runs on this machine and reads only. They are kept apart on purpose — ' +
       'one conversation per question stays short enough to be worth coming back to.';
 
@@ -325,17 +433,9 @@
         copied ? 1500 : 4000);
     }
 
-    function guardHeaders(extra) {
-      const h = Object.assign({}, extra || {});
-      h[guard.name] = guard.value;
-      return h;
-    }
-
     async function loadStatus() {
       try {
-        const res = await fetch(endpoints.status + '?t=' + Date.now(), { cache: 'no-store' });
-        if (!res.ok) return;
-        const cfg = await res.json();
+        const cfg = await transport.status();
         claudeStatus = (cfg && cfg.available) ? cfg : null;
         onStatusChanged(claudeStatus);
         if (claudeStatus) loadSessions();
@@ -344,9 +444,7 @@
 
     async function loadSessions() {
       try {
-        const res = await fetch(endpoints.sessions + '?t=' + Date.now(), { cache: 'no-store' });
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await transport.sessions();
         chatsIndex = (data && data.chats) || {};
         onSessionsChanged(chatsIndex);
         if (current) render();
@@ -381,7 +479,14 @@
 
     /* ---- The list of conversations under one owner key ----
        The host embeds this HTML wherever "chats on this thing" belongs on its
-       own page — a task drawer, a sidebar, wherever. */
+       own page — a task drawer, a sidebar, wherever. `spec.collapsible` wraps
+       it in a native <details> instead of a plain <div>, with the label as
+       the <summary> — for a host whose list of chats can run long enough to
+       be worth putting away. `spec.collapsed` sets the initial state; the
+       host owns remembering it (a data-collapse attribute is left on the
+       wrapper for the host's own delegated toggle listener to key off), this
+       module has no storage of its own to keep that in. Existing callers that
+       pass neither option get exactly the plain <div> they always did. */
     function renderSection(spec) {
       spec = spec || {};
       const ownerId = spec.ownerId, key = spec.ownerKey, label = spec.label || 'Chats';
@@ -399,18 +504,25 @@
               (s.mode === 'work' ? ' · <em class="aic-work">can write</em>' : '') +
             '</span>' +
           '</button>' +
-          '<a class="aic-icon" href="' + desktopHref(s.id) + '"' +
-            ' title="Open this conversation in Claude Desktop">Desktop</a>' +
+          (desktopLink ? '<a class="aic-icon" href="' + desktopHref(s.id) + '"' +
+            ' title="Open this conversation in Claude Desktop">Open in Claude</a>' : '') +
           '<button type="button" class="aic-icon aic-forget" data-session="' + esc(s.id) + '"' +
             ' data-key="' + esc(key) + '" title="Take it off this list. The transcript itself is left alone.">×</button>' +
         '</div>';
       }).join('');
-      return '<div class="aic-field">' +
-        '<span>' + esc(label) + (rows.length ? ' <em class="aic-sublabel">' + rows.length + '</em>' : '') + '</span>' +
-        (list || '<p class="aic-none">No conversations yet.</p>') +
+      const labelHTML = esc(label) + (rows.length ? ' <em class="aic-sublabel">' + rows.length + '</em>' : '');
+      const body = (list || '<p class="aic-none">No conversations yet.</p>') +
         '<button type="button" class="aic-addsub" data-owner="' + esc(ownerId) + '">+ New chat</button>' +
-        '<span class="aic-help">' + esc(readOnlyHelp.replace('this machine', home() ? 'this machine, in ' + home() : 'this machine')) + '</span>' +
-      '</div>';
+        // '' really does drop the line — not just its text, the element too, so
+        // a host that explained this itself elsewhere doesn't leave a blank
+        // .aic-help block sitting under the button for nothing.
+        (readOnlyHelp ? '<span class="aic-help">' +
+          esc(readOnlyHelp.replace('this machine', home() ? 'this machine, in ' + home() : 'this machine')) +
+          '</span>' : '');
+      if (!spec.collapsible) return '<div class="aic-field"><span>' + labelHTML + '</span>' + body + '</div>';
+      return '<details class="aic-field aic-collapse"' + (spec.collapsed ? '' : ' open') +
+        (spec.collapseKey ? ' data-collapse="' + esc(spec.collapseKey) + '"' : '') + '>' +
+        '<summary>' + labelHTML + '</summary>' + body + '</details>';
     }
 
     /* ---- The modal ---- */
@@ -450,11 +562,8 @@
       c.loading = true;
       render();
       const row = sessionsFor(c.key).find(s => s.id === sessionId);
-      const q = '?session=' + encodeURIComponent(sessionId) + '&cwd=' + encodeURIComponent((row && row.cwd) || '');
       try {
-        const res = await fetch(endpoints.transcript + q, { cache: 'no-store' });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
+        const data = await transport.transcript(sessionId, (row && row.cwd) || '');
         if (!current || current.session !== sessionId) return;
         current.turns = data.toobig ? [] : data.turns.map(t => ({
           ask: t.ask, reply: t.reply, error: '', cost: 0,
@@ -495,8 +604,10 @@
       dom.title.textContent = (row && row.title) || (run && run.title) || 'New chat';
       dom.forLine.textContent = (opts.ownerLabel && opts.ownerLabel(c.owner)) || '';
 
-      if (c.session) { dom.desktop.href = desktopHref(c.session); dom.desktop.classList.remove('aic-hidden'); }
-      else dom.desktop.classList.add('aic-hidden');
+      if (desktopLink && c.session) {
+        dom.desktop.href = desktopHref(c.session);
+        dom.desktop.classList.remove('aic-hidden');
+      } else dom.desktop.classList.add('aic-hidden');
 
       if (run && run.running) {
         dom.status.className = 'aic-status aic-live';
@@ -694,51 +805,17 @@
       render();
       startTicker();
 
-      let res;
       try {
-        res = await fetch(endpoints.run, {
-          method: 'POST',
-          // The guard header is the point, not the content type: a form
-          // cannot set one, so a page on another origin cannot reach the
-          // host's helper without a preflight the helper does not answer.
-          headers: guardHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({
-            prompt: rspec.ask, mode: run.mode, session: run.session,
-            owner: run.key, title: run.title
-          }),
-          signal: run.ctrl.signal
-        });
-      } catch (err) {
-        turn.error = run.ctrl && run.ctrl.signal.aborted
-          ? 'Stopped.' : 'Could not reach the helper — is it still running?';
-        return finishRun(run);
-      }
-      if (!res.ok) {
-        let msg = 'The helper refused it (HTTP ' + res.status + ')';
-        try { const j = await res.json(); if (j && j.error) msg = j.error; } catch (err) { /* not JSON */ }
-        turn.error = msg;
-        return finishRun(run);
-      }
-
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let buf = '';
-      try {
-        for (;;) {
-          const chunk = await reader.read();
-          if (chunk.done) break;
-          buf += dec.decode(chunk.value, { stream: true });
-          let nl;
-          while ((nl = buf.indexOf('\n')) >= 0) {
-            const line = buf.slice(0, nl).trim();
-            buf = buf.slice(nl + 1);
-            if (line) handleRunEvent(run, turn, line);
-          }
+        for await (const line of transport.run({
+          prompt: rspec.ask, mode: run.mode, session: run.session,
+          owner: run.key, title: run.title
+        }, run.ctrl.signal)) {
+          handleRunEvent(run, turn, line);
           render();
         }
       } catch (err) {
         if (run.ctrl && run.ctrl.signal.aborted) { if (!turn.reply) turn.error = 'Stopped.'; }
-        else turn.error = 'The answer stopped coming: ' + (err.message || err);
+        else turn.error = (err && err.message) || String(err);
       }
       finishRun(run);
     }
@@ -754,6 +831,7 @@
       if (run && run.running) return;
       box.value = '';
       autoGrow(box);
+      onSend({ owner: c.owner, key: c.key, session: c.session || '', ask, mode: c.mode || 'ask' });
       startRun({
         owner: c.owner, key: c.key, session: c.session, ask,
         // A brand new chat takes its name from the first thing asked in it. A
@@ -767,13 +845,7 @@
     }
 
     async function forget(ownerKey, sessionId) {
-      try {
-        await fetch(endpoints.forget, {
-          method: 'POST',
-          headers: guardHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ owner: ownerKey, session: sessionId })
-        });
-      } catch (err) { /* nothing to do about it */ }
+      try { await transport.forget(ownerKey, sessionId); } catch (err) { /* nothing to do about it */ }
       loadSessions();
     }
 

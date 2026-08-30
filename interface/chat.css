@@ -1,10 +1,13 @@
 /* ai_chat/interface/chat.css — styling for chat.js's modal and chat list.
  *
- * Self-contained: every colour is one of this file's own --aic-* tokens, so
- * the widget looks right in any host with no coordination required. The
+ * Self-contained: every colour, and now every radius, gap and the modal's
+ * own font and size, is one of this file's own --aic-* tokens, so the
+ * widget looks right in any host with no coordination required. The
  * defaults below are the ones to-dos already used; a host that wants to
- * match its own palette instead can just override these custom properties
- * on `:root` or on whatever element it mounts under.
+ * match its own palette or shape instead just overrides these custom
+ * properties on `:root` or on whatever element it mounts under — no build
+ * step, nothing to fork. See the two token blocks under `:root` below:
+ * colour first, then shape and type.
  *
  * Modelled on the claude.ai composer and thread — see
  * ../claude-chat-interface-findings.md for the teardown this follows. The
@@ -20,6 +23,19 @@
   --aic-line: #e3e6ea; --aic-line-soft: #eef0f3;
   --aic-accent: #2f6feb; --aic-accent-ink: #fff;
   --aic-red: #c8322f; --aic-amber: #9a6100; --aic-chip: #f0f2f5;
+
+  /* Shape and type — split out from colour so a host can restyle the frame
+     (a tighter modal, its own font, square corners) without fighting fixed
+     numbers anywhere below. Colour tokens above are the ones worth
+     overriding most often; these are the rest. */
+  --aic-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --aic-radius: 16px;       /* the modal itself */
+  --aic-radius-sm: 10px;    /* input, rows, chips */
+  --aic-radius-xs: 8px;     /* buttons, icons */
+  --aic-modal-w: min(760px, calc(100vw - 48px));
+  --aic-modal-h: min(720px, calc(100vh - 64px));
+  --aic-gap: 8px;           /* header and footer row gaps */
+  --aic-pad: 14px;          /* header and footer side padding */
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -32,13 +48,21 @@
 
 /* ---- the list of conversations under one owner key ---- */
 .aic-field{margin:0 0 14px}
-.aic-field > span{display:block; margin:0 0 6px; font-size:11.5px; font-weight:640;
+.aic-field > span, .aic-field > summary{display:block; margin:0 0 6px; font-size:11.5px; font-weight:640;
   text-transform:uppercase; letter-spacing:.03em; color:var(--aic-ink-faint)}
 .aic-sublabel{text-transform:none; letter-spacing:normal; font-weight:500}
+/* The collapsible variant of the section above — same label, wrapped in a
+   native <details> instead of a plain <div> so a long chat list can be put
+   away. The host remembers whether it was left open; this file only draws
+   the triangle and makes the label the thing that's clickable. */
+.aic-collapse > summary{cursor:pointer; list-style:none; display:flex; align-items:center; gap:5px}
+.aic-collapse > summary::-webkit-details-marker{display:none}
+.aic-collapse > summary::before{content:'▸'; font-size:9px; display:inline-block}
+.aic-collapse[open] > summary::before{content:'▾'}
 .aic-row{display:flex; align-items:stretch; gap:6px; margin:0 0 6px}
 .aic-open{
   flex:1; min-width:0; text-align:left; display:flex; flex-direction:column; gap:2px;
-  border:1px solid var(--aic-line); background:var(--aic-bg); border-radius:8px; padding:7px 10px;
+  border:1px solid var(--aic-line); background:var(--aic-bg); border-radius:var(--aic-radius-xs); padding:7px 10px;
   cursor:pointer; font:inherit;
 }
 .aic-open:hover{border-color:var(--aic-ink-faint)}
@@ -50,7 +74,7 @@
 .aic-live{font-style:normal; color:var(--aic-accent); font-weight:600}
 .aic-work{font-style:normal; color:var(--aic-amber)}
 .aic-icon{
-  flex:none; display:flex; align-items:center; padding:0 9px; border-radius:8px;
+  flex:none; display:flex; align-items:center; padding:0 9px; border-radius:var(--aic-radius-xs);
   border:1px solid var(--aic-line); background:var(--aic-panel); color:var(--aic-ink-soft);
   font-size:11.5px; font-weight:600; text-decoration:none; cursor:pointer;
 }
@@ -59,7 +83,7 @@
 .aic-none{margin:0 0 8px; font-size:12.5px; color:var(--aic-ink-faint)}
 .aic-addsub{
   border:1px dashed var(--aic-line); background:none; color:var(--aic-ink-soft);
-  border-radius:8px; padding:6px 10px; font-size:12.5px; font-weight:600; cursor:pointer;
+  border-radius:var(--aic-radius-xs); padding:6px 10px; font-size:12.5px; font-weight:600; cursor:pointer;
 }
 .aic-addsub:hover{border-color:var(--aic-ink-faint); color:var(--aic-ink)}
 .aic-help{display:block; margin-top:6px; font-size:11.5px; color:var(--aic-ink-faint)}
@@ -70,13 +94,13 @@
 .aic-hidden{display:none !important}
 .aic-scrim{position:absolute; inset:0; background:rgba(6,8,12,.45); opacity:0; animation:aic-fade .18s ease forwards}
 .aic-box{
-  position:absolute; left:50%; top:50%; width:min(760px, calc(100vw - 48px));
-  height:min(720px, calc(100vh - 64px)); display:flex; flex-direction:column;
-  background:var(--aic-panel); border:1px solid var(--aic-line); border-radius:16px;
+  position:absolute; left:50%; top:50%; width:var(--aic-modal-w);
+  height:var(--aic-modal-h); display:flex; flex-direction:column;
+  background:var(--aic-panel); border:1px solid var(--aic-line); border-radius:var(--aic-radius);
   box-shadow:0 24px 60px rgba(6,8,12,.28); overflow:hidden;
   transform:translate(-50%,-50%) scale(.965); opacity:0;
   animation:aic-in .22s cubic-bezier(.2,.8,.3,1) forwards;
-  font:13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:var(--aic-ink);
+  font:13px/1.5 var(--aic-font); color:var(--aic-ink);
 }
 @keyframes aic-fade{to{opacity:1}}
 @keyframes aic-in{to{transform:translate(-50%,-50%) scale(1); opacity:1}}
@@ -84,7 +108,7 @@
   .aic-scrim, .aic-box{animation-duration:.01ms}
 }
 .aic-head{
-  display:flex; align-items:center; gap:8px; padding:12px 14px;
+  display:flex; align-items:center; gap:var(--aic-gap); padding:12px var(--aic-pad);
   border-bottom:1px solid var(--aic-line-soft);
 }
 .aic-names{flex:1; min-width:0}
@@ -95,7 +119,7 @@
 }
 .aic-btn{
   border:1px solid var(--aic-line); background:var(--aic-panel); color:var(--aic-ink-soft);
-  border-radius:8px; padding:6px 12px; font-size:12.5px; font-weight:600; cursor:pointer;
+  border-radius:var(--aic-radius-xs); padding:6px 12px; font-size:12.5px; font-weight:600; cursor:pointer;
   text-decoration:none; display:inline-flex; align-items:center;
 }
 .aic-btn:hover{color:var(--aic-ink); border-color:var(--aic-ink-faint)}
@@ -132,13 +156,13 @@
 }
 .aic-scrollpill:hover{color:var(--aic-ink); border-color:var(--aic-ink-faint)}
 .aic-foot{
-  display:flex; align-items:flex-end; gap:8px; padding:12px 14px;
+  display:flex; align-items:flex-end; gap:var(--aic-gap); padding:12px var(--aic-pad);
   border-top:1px solid var(--aic-line-soft);
 }
 #aicInput{
   flex:1; min-width:0; height:38px; max-height:160px; resize:none; overflow-y:auto;
   border:1px solid var(--aic-line); background:var(--aic-bg); color:var(--aic-ink);
-  border-radius:10px; padding:9px 12px; font-size:13px; font-family:inherit; line-height:1.45;
+  border-radius:var(--aic-radius-sm); padding:9px 12px; font-size:13px; font-family:inherit; line-height:1.45;
 }
 #aicInput:focus{outline:none; border-color:var(--aic-ink-faint)}
 
