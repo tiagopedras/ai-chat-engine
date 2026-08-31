@@ -1,6 +1,6 @@
 {
   "name": "@tiagopedras/ai-chat-engine",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A Claude Code chat modal any local app can drop in, plus the Python engine that runs the CLI behind it. Vanilla JS/CSS, no build step, no dependency.",
   "license": "UNLICENSED",
   "private": true,
@@ -11,17 +11,26 @@
     ".": "./interface/chat.js",
     "./chat.js": "./interface/chat.js",
     "./chat.css": "./interface/chat.css",
+    "./node": "./node/dist/index.js",
     "./package.json": "./package.json"
   },
   "files": [
     "interface/chat.js",
     "interface/chat.css",
+    "node/dist",
     "engine.py",
     "http_glue.py",
     "README.md"
   ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3"
+  },
   "engines": {
-    "node": ">=14"
+    "node": ">=18"
   },
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
@@ -33,5 +42,10 @@
   "homepage": "https://github.com/tiagopedras/ai-chat-engine#readme",
   "bugs": {
     "url": "https://github.com/tiagopedras/ai-chat-engine/issues"
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.251",
+    "@types/node": "^22.20.1",
+    "typescript": "^5.9.3"
   }
 }

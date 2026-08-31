@@ -16,6 +16,22 @@ the Node engine once that's ported over from `ai_board` (see the "ai_board
 split" section below) — it's card-state logic, not something `interface/`
 draws.
 
+**Group a run of tool pills into one card.** Moved over from `ai_board`'s
+own list — a constraint on `opts.inlineTools`, really, not a separate
+feature: a dozen tool calls in a row currently draw a dozen separate pills,
+which is right for two or three and a wall of near-identical rows past
+that. A run of consecutive tool entries should collapse into one card:
+collapsed shows only the most recent command, one line, with a way to open
+it and see the full run. Worth doing while `flowHTML`/`pillsHTML` are
+fresh (see `interface/chat.js`).
+
+**A permission-mode switcher inside the chat window.** Also moved from
+`ai_board`. A way to change Claude Code's mode — auto, accept edits, plan,
+and the rest — from inside an open session, not only at launch. Straddles
+both halves of the split: the control belongs in the shared chat window
+(`interface/`), the plumbing in the session engine. Cheapest once the Node
+engine port below has actually landed, since the plumbing is that engine's.
+
 **Pull out shared code as a private GitHub package.** Any code here reused by
 other builds (deployed on Vercel, so no local `file:` symlink trick) should
 move into its own repo and get published as a private package on GitHub
@@ -77,18 +93,37 @@ the package.
    back to the old tools-then-text guess otherwise. Verified both paths
    render correctly in the same Chromium session.
 
-2. **The Node engine (`session.ts`, `sessionPool.ts`, `chatEngine.ts`,
-   `describeTool.ts`, `auth.ts`, `liveness.ts`, and the card/chat types) —
-   not started.** This is the bigger half: ~1,600 lines to port out of
-   `ai_board`, geometry stripped from the card shape, persistence turned
-   into a `CardStore` interface the host implements rather than a file
-   format this package owns, `@anthropic-ai/claude-agent-sdk` as a peer
-   dependency, no `electron` import. Exported as a `/node` subpath
-   (`@tiagopedras/ai-chat-engine/node`) once it exists. Also still open:
-   whether `engine.py` (CLI-based) and this Node engine (Agent-SDK-based)
-   stay two peer implementations of one contract or whether one becomes the
-   reference — `engine.py` has no equivalent of the SDK's `canUseTool` hook,
-   so it can't drive permission prompts the way the Node engine will.
+2. **The Node engine — ported, this session.** `node/src/{session,
+   sessionPool,chatEngine,describeTool,slashCommand,auth,liveness,types}.ts`,
+   exported as `@tiagopedras/ai-chat-engine/node`. Geometry and project
+   membership stripped from `SessionCard`/`CreateSessionInput`/
+   `ResumeSessionInput` per the split; persistence is now `CardStore` and
+   `ChatStore`, two small interfaces a host implements rather than a file
+   format this package owns; `@anthropic-ai/claude-agent-sdk` is a peer
+   dependency; no `electron` import anywhere. `SessionPool` kept only what
+   was actually session-tracking out of `ai_board`'s original — every
+   project/section/geometry method (`createProject`, `groupCards`,
+   `arrange`, `moveProject`, `folders`, `move`, `windowRect`, `view`, …) is
+   gone, since that's board work and stays with `ai_board`. See the
+   README's "The Node engine" section for the full API and the two store
+   interfaces.
+
+   Type-checks and builds clean (`npm run build`). Verified at runtime:
+   `describeTool`, `unwrapSlashCommand`, `detectLiveSessions` against fake
+   inputs, `checkAuth` against the real installed CLI on this machine (a
+   real authenticated response came back), and `SessionPool`/`ChatEngine`
+   constructing and wiring correctly against fake store implementations.
+   Not yet exercised: an actual session spawned end to end through
+   `SessionPool.create()` — that costs a real Agent SDK run, which wasn't
+   spent without asking — and `ai_board` actually adopting this as its own
+   main-process layer, the integration that will really prove the store
+   ports are shaped right.
+
+   Still open, unchanged: whether `engine.py` (CLI-based) and this Node
+   engine (Agent-SDK-based) stay two peer implementations of one contract
+   or whether one becomes the reference — `engine.py` has no equivalent of
+   the SDK's `canUseTool` hook, so it can't drive permission prompts the
+   way this engine does.
 
 `ai_board` (`ai-board-00`'s session) is building its side — the multi-window
 grid, peek mode, and depth ordering — against the `interface/` contract

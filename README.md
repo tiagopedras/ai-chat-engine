@@ -1,9 +1,11 @@
 # ai_chat
 
 Lets any local, single-user tool give a thing it tracks — a task, a ticket, a
-note — its own list of Claude Code conversations, each running against the
-local CLI and answering in a modal over the host's own page. Pulled out of
-`to-dos`'s board, which is still the reference integration.
+note, a card on a canvas — its own list of Claude Code conversations,
+answering in a modal (or a window it places itself) over the host's own
+page. Pulled out of `to-dos`'s board, which is still the reference
+integration for the modal; `ai_board` is the reference integration for the
+Node engine.
 
 One piece is required, the rest is optional and a host takes only what it
 needs:
@@ -22,6 +24,12 @@ needs:
   already runs its own small server can read this file for the shape rather
   than importing it, and reimplement the same five routes in whatever
   language and framework it actually uses.
+- **`node/` (`@tiagopedras/ai-chat-engine/node`)** — optional, and this
+  package's other engine: a TypeScript session-tracking layer built on the
+  Claude Agent SDK, for a Node host that wants a live, stateful card per
+  session — permission prompts included — rather than one CLI process per
+  prompt. See "The Node engine" below. Only a Node host needs this at all,
+  and only one that wants more than `chat.js`'s modal by itself gives it.
 
 `chat.js` doesn't know or care which of those a host picked. It makes
 exactly five calls — `status`, `sessions`, `transcript`, `run`, `forget` —
@@ -352,6 +360,177 @@ markup ends up under — `chat.css`'s own defaults only apply where nothing
 more specific wins, same as any other CSS. Nothing else in the file needs
 touching, and there is no build step to run after changing them.
 
+## The Node engine (`@tiagopedras/ai-chat-engine/node`)
+
+Everything above is `engine.py`'s world: one CLI process per run, `ask` and
+`work` as the only two modes, nothing that tracks a card's state between
+runs. `node/` is a second, TypeScript engine that drives the
+`@anthropic-ai/claude-agent-sdk` directly instead — a long-lived session per
+card rather than one CLI process per prompt, permission prompts a person
+can actually answer, and a `SessionCard` that stays current as the session
+runs rather than being replayed after the fact. It answers a different,
+larger question than `engine.py` does, not a faster version of the same one
+— see "Two engines, one contract" below for where they overlap and where
+they don't.
+
+Ported out of `ai_board`, which drove this split: it wanted to fold its own
+card-tracking and chat backend into this package rather than keep
+reinventing them per host. Stripped out along the way, per the boundary
+that split agreed on — a host's own business, not a session's:
+
+- **Geometry.** No `x`/`y`/`width`/`height`/`z` anywhere in a `SessionCard`.
+  A host positions its own cards; this engine only says what state one is
+  in.
+- **Projects, grouping, view state.** Sections, canvas layout, which view a
+  host is in — none of it exists here. A host that wants to group cards
+  keeps its own mapping, keyed by the card's identity (see "Two identities,
+  resolved once" below).
+- **A file format.** Persistence is two small interfaces a host implements,
+  not a store this package owns — see "The two store ports" below.
+
+### Installing it
+
+```
+npm install @tiagopedras/ai-chat-engine
+```
+
+```ts
+import { SessionPool, ChatEngine, type SessionCard } from '@tiagopedras/ai-chat-engine/node'
+```
+
+`@anthropic-ai/claude-agent-sdk` is a peer dependency (`^0.3`) — a host
+installs its own copy rather than getting one bundled, the same reasoning
+`react-dom` is a peer of a component library rather than a dependency of
+one. Node 18+, matching the SDK's own requirement.
+
+### `SessionPool` — the card-tracking half
+
+One instance per host, holding every session it's tracking, live or
+parked. The public surface, grouped by what it does:
+
+```ts
+new SessionPool(events: PoolEvents, store: CardStore)
+
+await pool.load()                                  // restores parked cards, checks auth
+pool.list(): SessionCard[]                          // every card, live and parked
+pool.create(input: CreateSessionInput): SessionCard
+await pool.resume(input: ResumeSessionInput): SessionCard
+await pool.wake(id): SessionCard | null             // starts a parked card's process
+await pool.pastSessions(): PastSession[]            // sessions on disk, not yet tracked
+
+pool.sendPrompt(id, prompt)
+pool.answerPermission(id, requestId, decision)
+await pool.interrupt(id)
+await pool.close(id)
+await pool.closeAll()
+pool.rename(id, title)
+pool.transcript(id): TranscriptEntry[]
+
+pool.setOpenCards(ids)                              // clears `unread` on the ones open
+pool.authState(): AuthState
+await pool.refreshAuth(): AuthState
+pool.executablePath(): string | undefined           // pass straight to ChatEngine, see below
+```
+
+`PoolEvents` is `{onCards(cards), onTranscript({id, entries}), onAuth(state)}`
+— a host wires these to however it repaints (an Electron `webContents.send`,
+a WebSocket, whatever). Everything moves through these three callbacks
+rather than a return value, because a session's own state changes on its
+own schedule, not on the host's.
+
+What every host had to build itself in `ai_board` and now doesn't:
+throttled event batching (a card that's `needs_you` or `error` flushes
+immediately; anything else coalesces every 120ms so a dozen live sessions
+don't repaint faster than anything can usefully draw), orphan detection
+(a parked card whose transcript has been deleted says so rather than
+silently failing to wake), and liveness detection (resuming a session
+something else is already driving forks it instead of two processes
+fighting over one transcript file).
+
+### `ChatEngine` — the same modal, a Node backend
+
+Answers `interface/chat.js`'s five-call contract (plus the optional sixth)
+the same way `engine.py` + `http_glue.py` do, but by calling the Agent SDK
+directly rather than spawning a `claude` process — useful for a host that
+already depends on the SDK for `SessionPool` and would rather not run two
+different ways of talking to Claude side by side.
+
+```ts
+const engine = new ChatEngine(chatStore, () => pool.authState().status === 'authenticated', {
+  resolveOwnerCwd: owner => lookUpAFolderFor(owner),   // only called for a brand-new chat
+  executablePath: () => pool.executablePath(),
+  onLine: (runId, line) => /* write `line` to whatever this runId's stream is */,
+  onEnd: (runId) => /* that stream is done */
+})
+
+engine.status()
+engine.sessions()
+await engine.transcript(sessionId, cwd)
+engine.forget(owner, session)
+engine.startRun(payload): { runId }
+engine.stopRun(runId)
+```
+
+Same `ask`-only limit `engine.py` has today — there's no config path to turn
+`work` on yet in either engine.
+
+### The two store ports
+
+Persistence is two small interfaces rather than a format this package
+owns — a host answers each however it already saves things (`ai_board`'s
+own `board.json`, adapted, in its case).
+
+```ts
+interface CardStore {
+  cards(): StoredCard[]                                    // enough to restore parked cards
+  put(card: StoredCard): void
+  patch(sessionId: string, patch: Partial<StoredCard>): void
+  rekey(from: string, to: string): void                     // temporary id -> real SDK session id
+  remove(sessionId: string): void
+}
+
+interface ChatStore {                                       // mirrors engine.py's SessionStore
+  chats(): Record<string, ChatSessionMeta[]>
+  recordChat(owner, sessionId, title, mode, cwd): void
+  touchChat(owner, sessionId): void
+  forgetChat(owner, sessionId): void
+}
+```
+
+`StoredCard` is `{sessionId, cwd, title, forkedFrom, updatedAt,
+lastMessageAt}` — no geometry, no window rect, no project membership. A
+host keeps those in its own store, keyed by the same `sessionId`, on
+whatever schedule it likes; `SessionPool` never needs to know they exist.
+One class can implement both interfaces if a host's store already answers
+both; `SessionPool` and `ChatEngine` never assume they're the same object.
+
+### Two identities, resolved once
+
+A card carries two ids: `id`, assigned the moment it's created, and
+`sessionId`, the SDK's own, null until the session initialises. Both are
+on every `SessionCard` this engine emits, on purpose — a host mapping cards
+onto its own grouping needs whichever one its own records were filed
+under, and that can be either one depending on when the filing happened.
+`ai_board` learned this the expensive way: project membership was
+re-derived from the card's `id` alone in four different places, and a
+session assigned to a project *after* it already had a `sessionId` fell
+through every one of them. Resolve `card.sessionId ?? card.id` once, in one
+place, and pass the resolved value down — not once per component that
+happens to need it.
+
+### Two engines, one contract
+
+`engine.py` and this one both answer `interface/chat.js`'s five-call
+contract, by different routes — a spawned CLI process versus the Agent SDK
+directly — and for now that's deliberate: peers, not one reference
+implementation with the other as a stopgap. The gap between them is real
+though. `engine.py` has no equivalent of the SDK's `canUseTool` hook, so it
+cannot drive the permission-prompt banner `interface/chat.js`'s `board_permission`
+line depends on — that capability only exists on this side of the split.
+Whether that gap closes by extending `engine.py`, or by `engine.py` staying
+the simple, dependency-free option and this engine the fuller one, is still
+open.
+
 ## Status
 
 Two integrations exist. `to-dos`'s board, on the `claude-from-the-card`
@@ -366,3 +545,12 @@ unheadered POST.
 Not yet exercised: work mode through a real UI (no host currently turns it
 on by default), two conversations running at once, and the `transport`
 option — added for a non-HTTP host but not yet wired into one end to end.
+
+The Node engine (`node/`) is ported and type-checks and builds clean, and
+its pieces are individually verified — `describeTool`, `unwrapSlashCommand`,
+`checkAuth` against a real installed CLI (a real authenticated response
+came back), `SessionPool`/`ChatEngine` constructing and wiring correctly
+against fake store implementations. Not yet exercised: a real session
+actually spawned through `SessionPool.create()` end to end, and `ai_board`
+adopting it as its own main-process layer, which is the integration that
+will actually prove the `CardStore`/`ChatStore` ports are the right shape.
