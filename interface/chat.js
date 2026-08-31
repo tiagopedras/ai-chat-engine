@@ -30,11 +30,37 @@
  * conversation carried on anywhere else comes back complete rather than as a
  * stale copy.
  *
- * The modal follows the claude.ai teardown in ../claude-chat-interface-findings.md:
- * attribution by asymmetry (a bubble for you, plain prose for the reply), one
- * slot for the primary action, a status line whose words are the progress.
- * Two things it deliberately does not copy — the trace stays visible rather
- * than waiting for a hover, and the reply keeps a Copy button.
+ * The modal follows the claude.ai teardown in ../claude-chat-interface-findings.md
+ * — that file is the spec for how this looks and behaves, not background
+ * reading, and stays the reference for anyone changing either. What it
+ * establishes: attribution by asymmetry (a bubble for you, plain prose for
+ * the reply), one slot for the primary action, a status line whose words are
+ * the progress. Two things it deliberately does not copy — the trace stays
+ * visible rather than waiting for a hover, and the reply keeps a Copy
+ * button.
+ *
+ * Every `AIChat.create()` call is its own instance, independent DOM and all
+ * — open several at once (one per card, say) and none of them ever resolves
+ * into another's markup. Two option groups beyond the plain modal above:
+ *
+ *   opts.windowed        drops the fixed, centred, scrim-backed modal for a
+ *                         window a host places and moves itself — dragged,
+ *                         resized, grown out of a card's own rect via FLIP.
+ *                         See growFrom()/setRect()/setZIndex()/setActive()
+ *                         and "windowed mode" below create(). This module
+ *                         stays incurious about *why* a rect changed; a
+ *                         host's grid, its peek mode, its depth order are
+ *                         never its concern.
+ *   opts.inlineTools,    the richer parts of a full work session's
+ *   opts.thinkingGlyphs, transcript — a tool call as a visible pill rather
+ *   permission prompts   than something folded into a collapsed trace, the
+ *                         CLI's own cycling-glyph indicator instead of a
+ *                         plain spinner, and a banner for a pending
+ *                         canUseTool decision (Allow / Always allow / Deny)
+ *                         answered via transport.answerPermission(). All
+ *                         opt-in or additive: a host that asks for none of
+ *                         them gets exactly the read-only "ask" modal this
+ *                         file has always drawn.
  */
 (function (global) {
   'use strict';
@@ -45,24 +71,30 @@
     });
   }
 
+  /* Code spans first, so a `**bold**` marker sitting inside backticks is
+     never mistaken for a real one — same ordering ai_board's Markdown.tsx
+     uses, kept deliberately narrow: show what falls outside this subset
+     exactly as written rather than guess at it. */
   function mdInline(s) {
     return esc(s)
       .replace(/`([^`]+)`/g, '<code>$1</code>')
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/(^|[\s(])_([^_]+)_/g, '$1<em>$2</em>');
+      .replace(/__([^_]+)__/g, '<strong>$1</strong>')
+      .replace(/(^|[\s(])_([^_]+)_/g, '$1<em>$2</em>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>');
   }
 
-  /* Enough markdown for a reply — paragraphs, bullets, headings, fenced code.
-     The inline half is mdInline, just above. */
+  /* Enough markdown for a reply — paragraphs, ordered and unordered lists,
+     headings, fenced code. The inline half is mdInline, just above. */
   function mdBlock(text) {
     const lines = String(text).replace(/\r/g, '').split('\n');
     const out = [];
-    let para = [], list = null, code = null;
+    let para = [], list = null, listTag = 'ul', code = null;
     const flushPara = () => {
       if (para.length) { out.push('<p>' + para.map(mdInline).join('<br>') + '</p>'); para = []; }
     };
     const flushList = () => {
-      if (list) { out.push('<ul>' + list.map(i => '<li>' + mdInline(i) + '</li>').join('') + '</ul>'); list = null; }
+      if (list) { out.push('<' + listTag + '>' + list.map(i => '<li>' + mdInline(i) + '</li>').join('') + '</' + listTag + '>'); list = null; }
     };
     const flush = () => { flushPara(); flushList(); };
     lines.forEach(raw => {
@@ -74,8 +106,16 @@
       }
       if (code !== null) { code.push(raw); return; }
       if (!l.trim()) { flush(); return; }
-      const bullet = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(l);
-      if (bullet) { flushPara(); (list = list || []).push(bullet[1]); return; }
+      const ordered = /^\s*\d+[.)]\s+(.*)$/.exec(l);
+      const bullet = ordered || /^\s*[-*•]\s+(.*)$/.exec(l);
+      if (bullet) {
+        // A change of kind mid-run (bullets into numbers, or back) starts a
+        // fresh list rather than mixing markers under one tag.
+        const tag = ordered ? 'ol' : 'ul';
+        if (list && tag !== listTag) flushList();
+        flushPara(); listTag = tag; (list = list || []).push(bullet[1]);
+        return;
+      }
       const head = /^\s*#{1,6}\s+(.*)$/.exec(l);
       if (head) { flush(); out.push('<p class="aic-h">' + mdInline(head[1]) + '</p>'); return; }
       flushList();
@@ -115,6 +155,10 @@
   };
   function runDoing(run) { return DOING[run.status] || (run.status ? 'Using ' + run.status : 'Working'); }
 
+  // The CLI's own spinner frames — see opts.thinkingGlyphs above create().
+  const THINKING_GLYPHS = ['·', '✢', '✳', '∗', '✻', '✽', '✻', '∗', '✳', '✢'];
+  const THINKING_FRAME_MS = 110;
+
   function runCost(n) { return n < 0.01 ? 'under 1¢' : '$' + n.toFixed(2); }
   function runDoneLabel(run) {
     const secs = Math.max(1, Math.round((run.ms || (Date.now() - run.started)) / 1000));
@@ -152,52 +196,107 @@
     return 'claude://resume?session=' + encodeURIComponent(sessionId);
   }
 
-  const MODAL_HTML =
-    '<div class="aic-wrap" id="aicWrap" aria-hidden="true">' +
-      '<div class="aic-scrim" id="aicScrim"></div>' +
-      '<section class="aic-box" id="aicBox" role="dialog" aria-modal="true" aria-labelledby="aicTitle">' +
+  /* One instance per `create()` call, each with its own DOM subtree — so a
+     host opening several at once (one per card, say) never has one
+     instance's lookups resolve into another's markup. `uid` only has to be
+     unique enough for the one id an ARIA attribute needs to point at
+     (`aria-labelledby`); everything else this module looks up by class,
+     scoped to the instance's own root element rather than the document. */
+  let aicInstances = 0;
+  // Shared across every instance on the page, unlike everything else here —
+  // document.body is one element no matter how many chats are open, so
+  // "is any chat open" has to be counted rather than each instance owning
+  // the flag outright. Otherwise closing window B while window A is still
+  // open would strip the class a host may be keying off of.
+  let aicOpenCount = 0;
+
+  // Windowed mode's geometry constants — see "windowed mode" below
+  // create(). Prose stops being readable past roughly 800px; a window
+  // narrower than 420 or shorter than 320 stops being usable.
+  const WIN_MIN_WIDTH = 420, WIN_MAX_WIDTH = 800, WIN_MIN_HEIGHT = 320, WIN_MARGIN = 24;
+  const WIN_MOTION_MS = 260, WIN_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)';
+  const WIN_REFLOW_TRANSITION = ['left', 'top', 'width', 'height']
+    .map(p => p + ' ' + WIN_MOTION_MS + 'ms ' + WIN_EASING).join(', ');
+  function modalHTML(uid) {
+    return (
+    '<div class="aic-wrap" aria-hidden="true">' +
+      '<div class="aic-scrim"></div>' +
+      '<section class="aic-box" role="dialog" aria-modal="true" aria-labelledby="' + uid + '-title">' +
         '<header class="aic-head">' +
           '<div class="aic-names">' +
-            '<strong id="aicTitle">Chat</strong>' +
-            '<span class="aic-for" id="aicFor"></span>' +
+            '<strong id="' + uid + '-title">Chat</strong>' +
+            '<span class="aic-for"></span>' +
           '</div>' +
-          '<a class="aic-btn aic-ghost" id="aicDesktop" href="#" target="_blank" rel="noopener"' +
+          '<a class="aic-btn aic-ghost aic-desktop" href="#" target="_blank" rel="noopener"' +
             ' title="Imports this session into Claude Desktop and carries it on there">Open in Claude</a>' +
-          '<button class="aic-btn aic-ghost" id="aicClose" type="button">Close</button>' +
+          '<button class="aic-btn aic-ghost aic-close" type="button">Close</button>' +
         '</header>' +
-        '<div class="aic-status" id="aicStatus" aria-live="polite"></div>' +
+        '<div class="aic-status" aria-live="polite"></div>' +
+        // Shown between the header and the transcript whenever the run is
+        // waiting on a tool decision — see handlePermissionEvent(). Not a
+        // status line: it takes an answer rather than reporting progress.
+        '<div class="aic-permission aic-hidden">' +
+          '<div class="aic-permission-title"></div>' +
+          '<p class="aic-permission-detail aic-hidden"></p>' +
+          '<div class="aic-permission-buttons">' +
+            '<button type="button" class="aic-btn aic-primary" data-permission="allow">Allow</button>' +
+            '<button type="button" class="aic-btn aic-ghost aic-hidden" data-permission="allow_always"' +
+              ' title="Allow this for the rest of the session, without asking again">Always allow</button>' +
+            '<button type="button" class="aic-btn aic-ghost" data-permission="deny">Deny</button>' +
+          '</div>' +
+        '</div>' +
         '<div class="aic-bodywrap">' +
-          '<div class="aic-body" id="aicBody"></div>' +
+          '<div class="aic-body"></div>' +
           // Hidden unless a live run has pushed content below what is
           // visible — see updateScrollPill(). Its own row, not inside
-          // #aicBody, because that element's innerHTML gets replaced whole
+          // .aic-body, because that element's innerHTML gets replaced whole
           // on every render.
-          '<button type="button" class="aic-scrollpill aic-hidden" id="aicScrollPill">New messages ↓</button>' +
+          '<button type="button" class="aic-scrollpill aic-hidden">New messages ↓</button>' +
         '</div>' +
-        '<form class="aic-foot" id="aicFoot" autocomplete="off">' +
-          '<textarea id="aicInput" rows="1" spellcheck="false"></textarea>' +
-          '<button class="aic-btn aic-primary" id="aicSend" type="submit">Send</button>' +
-          '<button class="aic-btn aic-ghost aic-hidden" id="aicStop" type="button">Stop</button>' +
+        '<form class="aic-foot" autocomplete="off">' +
+          '<textarea class="aic-input" rows="1" spellcheck="false"></textarea>' +
+          '<button class="aic-btn aic-primary aic-send" type="submit">Send</button>' +
+          '<button class="aic-btn aic-ghost aic-hidden aic-stop" type="button">Stop</button>' +
         '</form>' +
+        // Present in every instance, but only pointer-reachable once
+        // `opts.windowed` adds the class that gives them a hit box — see
+        // the CSS. A plain modal never binds their handlers either; see
+        // wireWindowed() below.
+        ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'].map(function (edge) {
+          return '<div class="aic-grip aic-grip-' + edge + '" data-edge="' + edge + '"></div>';
+        }).join('') +
       '</section>' +
-    '</div>';
+    '</div>');
+  }
 
-  /* The five calls the widget makes, and nothing else it needs from a host.
-     `defaultTransport` below is the HTTP shape described in ../README.md —
-     what a host answers if it takes the `engine.py` + `http_glue.py` path.
-     A host with no HTTP between the page and Claude at all (an Electron
-     renderer talking over IPC, say) skips both of those files and passes
-     `opts.transport` instead, implementing this same five-method contract
-     however it actually reaches Claude. Only the methods given override the
-     default, so a host can replace just `run` and leave the rest on fetch.
+  /* The five calls the widget makes, and nothing else it needs from a host —
+     plus one optional sixth. `defaultTransport` below is the HTTP shape
+     described in ../README.md — what a host answers if it takes the
+     `engine.py` + `http_glue.py` path. A host with no HTTP between the page
+     and Claude at all (an Electron renderer talking over IPC, say) skips
+     both of those files and passes `opts.transport` instead, implementing
+     this same contract however it actually reaches Claude. Only the methods
+     given override the default, so a host can replace just `run` and leave
+     the rest on fetch.
 
        status()                        -> Promise<{available, work, cwd, home, model, ...}>
        sessions()                      -> Promise<{chats: {ownerKey: [...]}}>
        transcript(sessionId, cwd)      -> Promise<{turns: [...], toobig}>
        run(payload, signal)            -> AsyncIterable<string>, one stream-json line per
                                            step (an AbortController's signal to honour;
-                                           payload is {prompt, mode, session, owner, title})
+                                           payload is {prompt, mode, session, owner, title}).
+                                           Two synthetic line types ride this same stream:
+                                           board_start/board_error (see the CLI transport
+                                           below) and board_permission — see
+                                           "Permission prompts" in ../README.md — a pending
+                                           canUseTool-style request the modal shows as a
+                                           banner rather than waiting on a click to notice.
        forget(ownerKey, sessionId)     -> Promise<void>
+       answerPermission(id, decision)  -> Promise<void>, OPTIONAL. Only called if present —
+                                           a backend that never asks a per-tool question
+                                           (this repo's engine.py, in both its modes) has
+                                           nothing to wire it to, and the banner simply
+                                           never appears for it.
 
      Errors thrown from any of these become the message shown in the modal
      (`run`'s must already be human-readable, since it is shown verbatim), so
@@ -272,7 +371,19 @@
           headers: guardHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ owner: ownerKey, session: sessionId })
         });
-      }
+      },
+      // Optional — only present on the default transport if a host wires
+      // `endpoints.permission`. A host whose backend never asks a per-tool
+      // question (ask mode, or work mode's blanket bypass) has nothing to
+      // point it at, and omitting it here is how that stays a no-op rather
+      // than every such host needing to say so itself.
+      answerPermission: endpoints.permission ? async function (requestId, decision) {
+        await fetch(endpoints.permission, {
+          method: 'POST',
+          headers: guardHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ requestId: requestId, decision: decision })
+        });
+      } : undefined
     };
   }
 
@@ -308,6 +419,33 @@
     const readOnlyHelp = opts.readOnlyHelp != null ? opts.readOnlyHelp :
       'Each one runs on this machine and reads only. They are kept apart on purpose — ' +
       'one conversation per question stays short enough to be worth coming back to.';
+    // Renders each tool call as a pill inline, where it happened, instead of
+    // collapsing the turn's tools into the trace at the end — closer to a
+    // full work session's transcript than a short answer's. Off by default:
+    // the collapsed trace is still the right call for a quick, mostly-text
+    // "ask" conversation, which is what most hosts of this widget are.
+    const inlineTools = !!opts.inlineTools;
+    // A window this module knows nothing about placing: no default position
+    // of its own, no opinion on why a new rect arrived, no share of the
+    // Escape key beyond the one flag below. See setRect/setZIndex/setActive.
+    // A plain host that never calls any of the three gets exactly today's
+    // fixed, centred modal.
+    const windowed = !!opts.windowed;
+    // A full-viewport dimming layer is right for one centred modal and
+    // wrong for several windows scattered across a canvas — off by default
+    // once windowed, on by default otherwise. `opts.scrim` overrides either
+    // way, same `!= null` reasoning as readOnlyHelp above: a host turning it
+    // off deliberately is a real choice to respect, not the same as never
+    // having said anything.
+    const showScrim = opts.scrim != null ? !!opts.scrim : !windowed;
+    const onRectLive = opts.onRectLive || function () {};
+    const onRectChange = opts.onRectChange || function () {};
+    const onFocus = opts.onFocus || function () {};
+    // Off by default so an existing host's status line looks exactly as it
+    // always has; on trades the plain spinning ring for the CLI's own
+    // cycling-glyph indicator, modelled on the Claude apps' CSS rather than
+    // a copied asset (there is no asset — the apps draw this too).
+    const thinkingGlyphs = !!opts.thinkingGlyphs;
 
     let claudeStatus = null;
     let chatsIndex = {};
@@ -316,32 +454,60 @@
     let current = null;   // the open chat, or null when the modal is closed
     let runTicker = null;
     let dom = null;
+    // Only the active instance's Escape closes it — with several windows
+    // open at once, a host arms exactly one at a time via setActive(). A
+    // single-modal host never calls it, so this stays true and Escape works
+    // exactly as it always has.
+    let activeFlag = true;
+    let originRect = null;   // set by growFrom(); consumed once, on next open
+    let growOrigin = null;   // the rect last grown from, reused to shrink back into on close
+    let winRect = null;      // current on-screen rect, windowed mode only
+    let winDrag = null;      // in-progress move/resize, windowed mode only
+    let winClosing = false;  // true for the length of the close animation, so a second click can't restart it
+    const uid = 'aic' + (++aicInstances);
 
     function mount() {
       if (dom) return;
       const holder = document.createElement('div');
-      holder.innerHTML = MODAL_HTML;
-      document.body.appendChild(holder.firstElementChild);
+      holder.innerHTML = modalHTML(uid);
+      const root = holder.firstElementChild;
+      document.body.appendChild(root);
+      // Scoped to this instance's own subtree throughout, not
+      // document.getElementById — two instances open at once must never
+      // resolve into each other's markup.
+      const $ = sel => root.querySelector(sel);
       dom = {
-        wrap: document.getElementById('aicWrap'),
-        scrim: document.getElementById('aicScrim'),
-        title: document.getElementById('aicTitle'),
-        forLine: document.getElementById('aicFor'),
-        desktop: document.getElementById('aicDesktop'),
-        close: document.getElementById('aicClose'),
-        status: document.getElementById('aicStatus'),
-        body: document.getElementById('aicBody'),
-        scrollPill: document.getElementById('aicScrollPill'),
-        foot: document.getElementById('aicFoot'),
-        input: document.getElementById('aicInput'),
-        send: document.getElementById('aicSend'),
-        stop: document.getElementById('aicStop')
+        root: root,
+        wrap: root,
+        box: $('.aic-box'),
+        head: $('.aic-head'),
+        scrim: $('.aic-scrim'),
+        title: $('.aic-names strong'),
+        forLine: $('.aic-for'),
+        desktop: $('.aic-desktop'),
+        close: $('.aic-close'),
+        status: $('.aic-status'),
+        permission: $('.aic-permission'),
+        permissionTitle: $('.aic-permission-title'),
+        permissionDetail: $('.aic-permission-detail'),
+        body: $('.aic-body'),
+        scrollPill: $('.aic-scrollpill'),
+        foot: $('.aic-foot'),
+        input: $('.aic-input'),
+        send: $('.aic-send'),
+        stop: $('.aic-stop'),
+        grips: root.querySelectorAll('.aic-grip')
       };
       dom.input.placeholder = placeholder;
+      if (!showScrim) dom.scrim.classList.add('aic-hidden');
       dom.close.onclick = closeChat;
       dom.scrim.onclick = closeChat;
       dom.foot.onsubmit = e => { e.preventDefault(); send(); };
       dom.stop.onclick = () => { const run = currentRun(); if (run && run.ctrl) run.ctrl.abort(); };
+      dom.permission.addEventListener('click', e => {
+        const btn = e.target.closest('[data-permission]');
+        if (btn) answerPermission(btn.dataset.permission);
+      });
       // The box grows line by line instead of scrolling inside itself, so a
       // long question stays visible while it is being written.
       dom.input.addEventListener('input', e => autoGrow(e.target));
@@ -359,10 +525,184 @@
         dom.body.scrollTop = dom.body.scrollHeight;
         updateScrollPill();
       };
-      // Escape closes the chat before it closes whatever is behind it.
+      // Escape closes the chat before it closes whatever is behind it — but
+      // only when this instance is the one the host says is on top.
       window.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && current) { e.stopPropagation(); closeChat(); }
+        if (e.key === 'Escape' && current && activeFlag) { e.stopPropagation(); closeChat(); }
       }, true);
+      if (windowed) wireWindowed();
+    }
+
+    /* ---- windowed mode: a window a host places, rather than a fixed,
+       centred modal ----
+
+       Everything below only runs when `opts.windowed` is true, and this
+       module stays deliberately incurious about the reason a rect changed:
+       a saved position, a grid cell among several open windows, a peeked
+       spot at the screen's edge — all of it is setRect()'s problem to have
+       decided, never this file's. What stays here is the FLIP grow/shrink
+       (so the thing a click opened and the window it becomes read as the
+       same object), dragging and resizing, and reporting rect changes so a
+       host can save or reflow around them. What does NOT stay here: where a
+       window starts out, its place in any shared depth order, and whether
+       Escape is this window's to answer — a host with several windows open
+       decides all three; see setZIndex/setActive. */
+
+    function prefersReducedMotion() {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
+
+    /* Opens near the middle at a readable width, never wider than the cap —
+       used the first time a window opens with no saved rect to restore. */
+    function defaultWinRect() {
+      const width = Math.min(WIN_MAX_WIDTH, window.innerWidth - WIN_MARGIN * 2);
+      const height = Math.min(680, window.innerHeight - WIN_MARGIN * 2 - 40);
+      return {
+        x: Math.round((window.innerWidth - width) / 2),
+        y: Math.round((window.innerHeight - height) / 2) + 12,
+        width: width, height: height
+      };
+    }
+
+    /* Keeps a window on screen and within its size limits — applied to the
+       end state of a local drag or resize. Never applied to a rect a host
+       hands in through setRect(): a peeked window is deliberately placed
+       mostly off-screen, which is exactly what this exists to prevent. */
+    function clampWinRect(rect) {
+      const width = Math.max(WIN_MIN_WIDTH, Math.min(WIN_MAX_WIDTH, rect.width));
+      const height = Math.max(WIN_MIN_HEIGHT, rect.height);
+      return {
+        width: width,
+        height: Math.min(height, window.innerHeight - WIN_MARGIN),
+        // At least a slice of the header stays reachable on every edge, so a
+        // window can always be dragged back rather than lost off screen.
+        x: Math.max(-width + 120, Math.min(rect.x, window.innerWidth - 120)),
+        y: Math.max(38, Math.min(rect.y, window.innerHeight - 60))
+      };
+    }
+
+    /* The one place a rect actually lands on the element. `immediate` turns
+       the reflow transition off — used while a local drag is live, so the
+       window tracks the pointer with no lag, and for the very first
+       placement, so a freshly opened window never visibly slides in from
+       wherever the previous one happened to be. */
+    function applyRect(rect, immediate) {
+      winRect = rect;
+      if (!dom || !dom.box) return;
+      const box = dom.box;
+      box.style.left = rect.x + 'px';
+      box.style.top = rect.y + 'px';
+      box.style.width = rect.width + 'px';
+      box.style.height = rect.height + 'px';
+      box.style.transition = (immediate || winDrag) ? 'none' : WIN_REFLOW_TRANSITION;
+    }
+
+    function wireWindowed() {
+      dom.wrap.classList.add('aic-windowed');
+      // Any pointerdown anywhere in the window brings it to the front,
+      // including one that goes on to start a drag — captured ahead of the
+      // drag/resize handlers below rather than raised by them, so a host
+      // never has to guess whether a given gesture counts as a focus.
+      dom.box.addEventListener('pointerdown', onFocus, true);
+      dom.head.addEventListener('pointerdown', e => startWinDrag('move', e));
+      // A pointerdown that lands on a header button is a click on that
+      // button, never the start of a drag.
+      [dom.close, dom.desktop, dom.stop].forEach(el => {
+        if (el) el.addEventListener('pointerdown', e => e.stopPropagation());
+      });
+      dom.grips.forEach(g => g.addEventListener('pointerdown', e => startWinDrag(g.dataset.edge, e)));
+      window.addEventListener('pointermove', onWinMove);
+      window.addEventListener('pointerup', onWinUp);
+    }
+
+    function startWinDrag(kind, e) {
+      if (!winRect) return;
+      e.preventDefault();
+      winDrag = { kind: kind, startX: e.clientX, startY: e.clientY, origin: Object.assign({}, winRect) };
+    }
+
+    // Move and resize share one handler so the window keeps following the
+    // cursor even when the pointer outruns the panel.
+    function onWinMove(e) {
+      if (!winDrag) return;
+      const dx = e.clientX - winDrag.startX;
+      const dy = e.clientY - winDrag.startY;
+      const o = winDrag.origin;
+      let next;
+      if (winDrag.kind === 'move') {
+        next = clampWinRect({ x: o.x + dx, y: o.y + dy, width: o.width, height: o.height });
+      } else {
+        next = Object.assign({}, o);
+        const k = winDrag.kind;
+        if (k.indexOf('e') >= 0) next.width = o.width + dx;
+        if (k.indexOf('s') >= 0) next.height = o.height + dy;
+        if (k.indexOf('w') >= 0) {
+          // Growing leftwards moves the origin, but only as far as the
+          // minimum width allows, or the panel would slide while refusing
+          // to shrink.
+          const width = Math.max(WIN_MIN_WIDTH, Math.min(WIN_MAX_WIDTH, o.width - dx));
+          next.x = o.x + (o.width - width);
+          next.width = width;
+        }
+        if (k.indexOf('n') >= 0) {
+          const height = Math.max(WIN_MIN_HEIGHT, o.height - dy);
+          next.y = o.y + (o.height - height);
+          next.height = height;
+        }
+        next = clampWinRect(next);
+      }
+      applyRect(next, true);
+      onRectLive(next);
+    }
+
+    function onWinUp() {
+      if (!winDrag) return;
+      winDrag = null;
+      // The rect itself is already final from the last move; only the
+      // transition needs restoring, so a later programmatic setRect() call
+      // (a grid reflow, say) glides there instead of jumping.
+      if (dom && dom.box) dom.box.style.transition = WIN_REFLOW_TRANSITION;
+      if (winRect) onRectChange(winRect);
+    }
+
+    /* Grows the panel out of `rect` (viewport coordinates — a DOMRect or the
+       same shape) rather than having it appear over it, so the thing a click
+       opened and the window it becomes read as the same object. Skipped
+       under prefers-reduced-motion, where the window just appears. */
+    function growFromRect(rect) {
+      const el = dom.box;
+      if (!el || prefersReducedMotion()) return;
+      const to = el.getBoundingClientRect();
+      if (!to.width || !to.height) return;
+      const sx = rect.width / to.width, sy = rect.height / to.height;
+      const tx = rect.left - to.left, ty = rect.top - to.top;
+      el.animate([
+        { transform: 'translate(' + tx + 'px,' + ty + 'px) scale(' + sx + ',' + sy + ')', opacity: 0.5 },
+        { transform: 'translate(0,0) scale(1,1)', opacity: 1 }
+      ], { duration: WIN_MOTION_MS, easing: WIN_EASING, fill: 'both' });
+    }
+
+    /* The close half of the same FLIP move, played backwards — one curve,
+       one duration, for both directions, so closing is not a different
+       gesture. A backstop timer means a cancelled or unsettled animation
+       still lets the window go rather than becoming a trap. */
+    function closeWindowed() {
+      winClosing = true;
+      const el = dom && dom.box;
+      if (!el || !growOrigin || prefersReducedMotion()) { finishClose(); return; }
+      const from = el.getBoundingClientRect();
+      const rect = growOrigin;
+      const sx = rect.width / from.width, sy = rect.height / from.height;
+      const tx = rect.left - from.left, ty = rect.top - from.top;
+      let done = false;
+      const finish = () => { if (done) return; done = true; finishClose(); };
+      const anim = el.animate([
+        { transform: 'translate(0,0) scale(1,1)', opacity: 1 },
+        { transform: 'translate(' + tx + 'px,' + ty + 'px) scale(' + sx + ',' + sy + ')', opacity: 0.5 }
+      ], { duration: WIN_MOTION_MS, easing: WIN_EASING, fill: 'both' });
+      anim.onfinish = finish;
+      anim.oncancel = finish;
+      setTimeout(finish, WIN_MOTION_MS + 150);
     }
 
     function nearBottom() {
@@ -535,10 +875,14 @@
                   turns: null, loading: false, run: runFor(sessionId) };
       dom.wrap.classList.add('aic-on');
       dom.wrap.setAttribute('aria-hidden', 'false');
+      aicOpenCount++;
       document.body.classList.add('aic-chatting');
+      if (windowed) applyRect(winRect || defaultWinRect(), true);
       render();
       if (sessionId && !runFor(sessionId)) loadTranscript(sessionId);
       setTimeout(() => { if (dom.input) dom.input.focus(); }, 60);
+      if (windowed && originRect) { growOrigin = originRect; growFromRect(originRect); }
+      originRect = null;   // consumed — the next open starts plain unless growFrom() is called again
     }
     /* A brand new conversation, or one seeded with a prompt but not sent —
        seeded runs still have a [placeholder] in them sometimes, and firing on
@@ -547,12 +891,18 @@
     function openSession(ownerId, ownerKey, sessionId) { openInternal(ownerId, ownerKey, sessionId, ''); }
 
     function closeChat() {
+      if (windowed && current && !winClosing) { closeWindowed(); return; }
+      if (!winClosing) finishClose();
+    }
+    function finishClose() {
       current = null;
+      winClosing = false;
       if (dom) {
         dom.wrap.classList.remove('aic-on');
         dom.wrap.setAttribute('aria-hidden', 'true');
       }
-      document.body.classList.remove('aic-chatting');
+      aicOpenCount = Math.max(0, aicOpenCount - 1);
+      if (aicOpenCount === 0) document.body.classList.remove('aic-chatting');
       onChange();
     }
 
@@ -609,9 +959,13 @@
         dom.desktop.classList.remove('aic-hidden');
       } else dom.desktop.classList.add('aic-hidden');
 
-      if (run && run.running) {
+      if (run && run.permission) {
         dom.status.className = 'aic-status aic-live';
-        dom.status.innerHTML = '<span class="aic-star"></span>' +
+        dom.status.innerHTML = '<span class="aic-star"></span><span class="aic-doing">Waiting on your decision</span>';
+      } else if (run && run.running) {
+        dom.status.className = 'aic-status aic-live';
+        dom.status.innerHTML =
+          (thinkingGlyphs ? '<span class="aic-star aic-glyph">' + THINKING_GLYPHS[0] + '</span>' : '<span class="aic-star"></span>') +
           '<span class="aic-doing">' + esc(runDoing(run)) + '</span>' +
           '<em class="aic-clock">' + Math.round((Date.now() - run.started) / 1000) + 's</em>';
       } else if (run) {
@@ -627,6 +981,21 @@
       } else {
         dom.status.className = 'aic-status';
         dom.status.textContent = 'New conversation in ' + home() + ' · reads only';
+      }
+
+      // The permission banner sits between the header and the transcript,
+      // only while a tool decision is pending — see handleRunEvent's
+      // board_permission handling and answerPermission() below.
+      const permission = run && run.permission;
+      dom.permission.classList.toggle('aic-hidden', !permission);
+      if (permission) {
+        dom.permissionTitle.textContent = permission.title;
+        dom.permissionDetail.textContent = permission.description || '';
+        dom.permissionDetail.classList.toggle('aic-hidden', !permission.description);
+        // Offered only when the run actually gave a rule that would stop it
+        // asking again — a real third answer, not Allow wearing a label.
+        const always = dom.permission.querySelector('[data-permission="allow_always"]');
+        always.classList.toggle('aic-hidden', !permission.canAlwaysAllow);
       }
 
       // Send and Stop share one slot, so the primary action is never
@@ -674,7 +1043,14 @@
        `showActs` only ever holds for the last turn, and never mid-run — see
        retryTurn()/editTurn() for why only the last one gets Retry and Edit. */
     function turnHTML(turn, i, showActs) {
-      const trace = traceHTML(turn, i);
+      // Two ways to show what ran: collapsed into one line that opens into a
+      // timeline (the default — right for a short "ask" answer), or a pill
+      // per call sitting in the open (opts.inlineTools — right once tool use
+      // is the point of the turn, not a detail of how the answer got made).
+      // Not chronological interleaving with the reply text — both show every
+      // call the turn made, just in "hidden until asked" vs "always visible"
+      // form.
+      const trace = inlineTools ? toolPillsHTML(turn.tools) : traceHTML(turn, i);
       const mineActs = showActs
         ? '<div class="aic-mineacts">' +
             '<button type="button" class="aic-mini" data-copy="' + esc(turn.ask) + '">Copy</button>' +
@@ -693,6 +1069,15 @@
           '<div class="aic-bubble">' + mdInline(turn.ask) + '</div>' + mineActs +
         '</div></div>' +
         trace + reply + err + '</div>';
+    }
+
+    /* Every call this turn made, always visible — opts.inlineTools' answer
+       to traceHTML's collapsed one. */
+    function toolPillsHTML(tools) {
+      if (!tools || !tools.length) return '';
+      return '<div class="aic-toolpills">' +
+        tools.map(t => '<span class="aic-pill">' + esc(t) + '</span>').join('') +
+        '</div>';
     }
 
     /* What it did, in order. One grey summary line that opens into a
@@ -727,11 +1112,43 @@
           if (el) el.textContent = Math.round((Date.now() - run.started) / 1000) + 's';
         }
       }, 1000);
+      if (thinkingGlyphs) startGlyphTicker();
+    }
+
+    // A separate, faster interval from the clock above — glyph frames are a
+    // different cadence than seconds, and hosts that never turn this on
+    // (the default) pay nothing for it.
+    let glyphTimer = null, glyphFrame = 0;
+    function startGlyphTicker() {
+      if (glyphTimer) return;
+      glyphTimer = setInterval(() => {
+        if (!liveRuns().length) { clearInterval(glyphTimer); glyphTimer = null; return; }
+        glyphFrame = (glyphFrame + 1) % THINKING_GLYPHS.length;
+        const el = dom && dom.status.querySelector('.aic-glyph');
+        if (el) el.textContent = THINKING_GLYPHS[glyphFrame];
+      }, THINKING_FRAME_MS);
     }
 
     function handleRunEvent(run, turn, line) {
       let d;
       try { d = JSON.parse(line); } catch (err) { return; }
+      // Any further word from the run means it has moved past waiting,
+      // whether or not this module is the thing that answered — a CLI-side
+      // rule or the SDK's own "always allow" can resolve one without a
+      // click ever happening here.
+      if (run.permission && d.type !== 'board_permission') run.permission = null;
+      if (d.type === 'board_permission') {
+        // A pending canUseTool request the transport is relaying — see
+        // ../README.md's "Permission prompts" section for the shape and
+        // answerPermission() below for how a click resolves it.
+        run.permission = {
+          requestId: d.requestId || '', toolName: d.toolName || '',
+          title: d.title || 'Claude wants permission',
+          description: d.description || '', canAlwaysAllow: !!d.canAlwaysAllow
+        };
+        run.status = 'needs_you';
+        return;
+      }
       if (d.type === 'board_start') {
         run.cwd = d.cwd || ''; run.home = d.home || ''; run.status = 'thinking';
         return;
@@ -795,7 +1212,7 @@
       const run = runs['n' + (++runCounter)] = {
         owner: rspec.owner, key: rspec.key, session: rspec.session || '',
         title: rspec.title || rspec.ask, mode: rspec.mode || 'ask',
-        running: true, status: 'starting', cwd: '', home: home(),
+        running: true, status: 'starting', cwd: '', home: home(), permission: null,
         turns: (rspec.turns || []).slice(), started: Date.now(), ms: 0, cost: 0,
         seen: {}, ctrl: new AbortController()
       };
@@ -844,10 +1261,49 @@
       });
     }
 
+    /* A click on Allow / Always allow / Deny. Cleared locally right away
+       rather than waiting on a round trip — the run's own next event would
+       clear it anyway (see handleRunEvent), this just avoids a stale banner
+       sitting there for the length of one network call. A transport that
+       hasn't implemented this call yet (most haven't; it's optional — see
+       ../README.md) is a silent no-op instead of a thrown error, since
+       there is nothing sensible to show the answer failed against. */
+    function answerPermission(decision) {
+      const run = currentRun();
+      if (!run || !run.permission) return;
+      const requestId = run.permission.requestId;
+      run.permission = null;
+      render();
+      if (transport.answerPermission) {
+        Promise.resolve(transport.answerPermission(requestId, decision)).catch(() => {});
+      }
+    }
+
     async function forget(ownerKey, sessionId) {
       try { await transport.forget(ownerKey, sessionId); } catch (err) { /* nothing to do about it */ }
       loadSessions();
     }
+
+    /* ---- windowed-mode-only public API — no-ops when opts.windowed is
+       false, so a plain-modal host (to-dos, say) never has to know these
+       exist. ---- */
+
+    // Call before openNew()/openSession(): the FLIP grow-in animates from
+    // this rect (a DOMRect, or the same {left,top,width,height} shape — the
+    // card's own bounding box, typically) on the open that follows. Not
+    // sticky beyond that one open.
+    function growFrom(rect) { originRect = rect; }
+    // A rect this window did not choose and is not asked to justify: a
+    // saved position, a grid cell, a peek target. Ignored while a local
+    // drag or resize is live, so a host reflowing other windows never
+    // fights the one you're currently dragging.
+    function setRect(rect) { if (windowed && rect && !winDrag) applyRect(rect, false); }
+    function setZIndex(z) { if (dom) dom.wrap.style.zIndex = z; }
+    // Whether this is the window a bare Escape should close — a host with
+    // several open at once arms exactly one. A single-modal host never
+    // calls this, so it defaults to true and Escape behaves exactly as it
+    // always has.
+    function setActive(v) { activeFlag = !!v; }
 
     return {
       loadStatus, loadSessions,
@@ -855,7 +1311,8 @@
       sessionsFor, newOwnerKey,
       renderSection,
       openNew, openSession, closeChat, isOpen,
-      forget
+      forget,
+      growFrom, setRect, setZIndex, setActive
     };
   }
 

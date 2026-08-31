@@ -94,6 +94,45 @@ working directory and answer; it cannot change anything.
 only turns this on if the host's own config file says so — a mode that edits
 files across disk should be switched on deliberately, not shipped on.
 
+Neither mode asks a per-tool question — `ask` refuses the tools outright,
+`work` never refuses at all. A backend that drives the Claude Agent SDK
+directly (rather than spawning the `claude` CLI, as `engine.py` does) can
+offer a third answer, a supervised mode where each tool call waits on a
+person: see "Permission prompts" below. `engine.py` does not implement this
+today — the CLI has no equivalent of the SDK's `canUseTool` hook to drive it
+from — so this is real for an SDK-backed engine and not yet for the one in
+this repo.
+
+## Permission prompts
+
+Optional, and only worth wiring if a host's backend actually asks a per-tool
+question (see the note above). When a run is waiting on one, its transport
+sends one more synthetic line on the same NDJSON stream `run()` already
+returns:
+
+```json
+{"type": "board_permission", "requestId": "...", "toolName": "Bash",
+ "title": "Claude wants to run a command", "description": "rm -rf build/",
+ "canAlwaysAllow": true}
+```
+
+The modal shows it as a banner between the header and the transcript —
+Allow (primary), Always allow only when `canAlwaysAllow` is true, Deny — and
+disables the composer the same way a running turn already does. A click
+calls `transport.answerPermission(requestId, decision)`, `decision` being
+`'allow'`, `'allow_always'` or `'deny'`. The banner is cleared the moment the
+run's next event arrives, whether or not it was this click that resolved
+it — a rule the SDK itself applied, or a different client entirely,
+clears it exactly the same way.
+
+`answerPermission` is the one call in the transport contract that is
+genuinely optional: a transport that never defines it is a silent no-op
+(the banner would simply never appear, since nothing would ever send a
+`board_permission` line to begin with), not a thrown error. On the default
+HTTP transport it activates only if `opts.endpoints.permission` is set —
+there is no default path, because `http_glue.py`'s reference server has no
+route to answer it yet.
+
 ## The HTTP contract
 
 Whatever serves these routes, `interface/chat.js` expects exactly this
@@ -114,6 +153,7 @@ page that tried it.
 | `/claude/transcript.json` | GET | `?session=<id>&cwd=<cwd>` | `{turns: [...], toobig, path}` |
 | `/claude/forget` | POST | `{owner, session}` | `{ok}` |
 | `/claude` | POST | `{prompt, mode, session, owner, title}` | `application/x-ndjson`, streamed: the CLI's own `stream-json` lines, plus a synthetic `{"type":"board_start",...}` first and a synthetic `{"type":"board_error",...}` if the run ends with no `result` line |
+| *(none by default)* | POST | `{requestId, decision}` | optional — see "Permission prompts" above. Point `opts.endpoints.permission` at whatever route your backend answers this on; `http_glue.py` doesn't define one. |
 
 `owner` in the POST bodies is the owner key the session should be filed
 under — pass `''` for a run that doesn't belong to anything.
@@ -218,6 +258,62 @@ rather than spawning a second `claude` process next to it.
 `loadStatus()` has confirmed a CLI is actually behind the host. Everything
 degrades to "no button" rather than an error: no CLI on PATH, a host too old
 to know the routes, a static file server with nothing behind it at all.
+
+## Several open at once, and windowed mode
+
+Every `AIChat.create()` call is a fully independent instance — its own DOM,
+its own state — so a host that wants several chats open simultaneously (one
+per card on a canvas, say) just calls `create()` once per window rather than
+sharing one. Nothing about the plain modal above changes for a host that
+never does this.
+
+`opts.windowed: true` swaps the fixed, centred, scrim-backed modal for a
+window a host places and moves itself: draggable by its header, resizable
+from any edge or corner, and grown out of a card's own on-screen rectangle
+via a FLIP animation rather than appearing over it — the same technique
+`claude-chat-interface-findings.md`'s host apps use, so the thing you
+clicked and the thing you get read as the same object. What it does *not*
+do is decide where it sits: this module stays deliberately incurious about
+*why* a rect changed, so a multi-window grid, a "peek" mode, and one shared
+depth order across windows and whatever else is on the host's canvas all
+stay the host's own code, never this file's.
+
+```js
+const win = AIChat.create({
+  windowed: true,
+  scrim: false,           // several windows open at once want no per-window dimmer;
+                           // defaults to false when windowed, true otherwise
+  onRectLive: rect => { /* every live change, mid-drag included */ },
+  onRectChange: rect => { /* a drag or resize just committed — save it */ },
+  onFocus: () => { /* bring this one to the front of your own z-order */ }
+});
+
+win.growFrom(cardEl.getBoundingClientRect());   // before the open call that follows
+win.openSession(ownerId, ownerKey, sessionId);
+
+win.setRect(savedRectOrGridCell);   // a rect this window did not choose — applied
+                                     // as-is, never clamped, and never while a local
+                                     // drag is in progress
+win.setZIndex(920);
+win.setActive(isTopWindow);         // only the active instance's Escape closes it
+```
+
+Two richer-transcript options pair naturally with windowed mode, since both
+are about a full work session rather than a short read-only answer, but
+either works standalone:
+
+- `opts.inlineTools: true` — each tool call is a pill sitting in the open,
+  instead of folded into the collapsed trace the plain modal uses. Same
+  information, always visible rather than hidden until asked.
+- `opts.thinkingGlyphs: true` — the CLI's own cycling asterisk
+  (`· ✢ ✳ ∗ ✻ ✽ ✻ ∗ ✳ ✢`) instead of the plain spinning ring, in the same
+  spot in the status line.
+
+What's still `SessionModal`-only and hasn't moved here: renaming a
+conversation by double-clicking its title, and a transcript addressed as
+five typed entry kinds (`user`/`assistant`/`tool`/`result`/`error`) rather
+than this module's ask-and-reply turns. Both are real gaps, not oversights —
+flagged rather than guessed at.
 
 ## Making it look like the host, not like `to-dos`
 

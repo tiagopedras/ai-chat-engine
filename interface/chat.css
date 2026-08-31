@@ -9,12 +9,18 @@
  * step, nothing to fork. See the two token blocks under `:root` below:
  * colour first, then shape and type.
  *
- * Modelled on the claude.ai composer and thread — see
- * ../claude-chat-interface-findings.md for the teardown this follows. The
+ * Modelled on the claude.ai composer and thread — ../claude-chat-interface-
+ * findings.md is the spec this follows, not background reading, and stays
+ * the reference for anyone changing how the modal looks or behaves. The
  * parts worth copying were the asymmetry (a bubble for you, plain prose for
  * the reply), one slot for the primary action, and a status line whose words
  * are the progress. The part worth not copying was hiding the trace behind
  * a hover — it stays visible here.
+ *
+ * Everything below "one turn" is shared by every host; everything under
+ * "windowed mode" only applies once a host passes `opts.windowed` to
+ * chat.js's `create()` — a plain modal host never loads a rule that matters
+ * to it.
  */
 
 :root {
@@ -159,12 +165,12 @@
   display:flex; align-items:flex-end; gap:var(--aic-gap); padding:12px var(--aic-pad);
   border-top:1px solid var(--aic-line-soft);
 }
-#aicInput{
+.aic-input{
   flex:1; min-width:0; height:38px; max-height:160px; resize:none; overflow-y:auto;
   border:1px solid var(--aic-line); background:var(--aic-bg); color:var(--aic-ink);
   border-radius:var(--aic-radius-sm); padding:9px 12px; font-size:13px; font-family:inherit; line-height:1.45;
 }
-#aicInput:focus{outline:none; border-color:var(--aic-ink-faint)}
+.aic-input:focus{outline:none; border-color:var(--aic-ink-faint)}
 
 /* Keyboard focus gets an outline every interactive element in here is
    missing otherwise — mouse and touch don't, via :focus-visible, so a click
@@ -174,7 +180,7 @@
 .aic-tracehead:focus-visible, .aic-scrollpill:focus-visible {
   outline:2px solid var(--aic-accent); outline-offset:2px;
 }
-#aicInput:focus-visible{outline:2px solid var(--aic-accent); outline-offset:1px}
+.aic-input:focus-visible{outline:2px solid var(--aic-accent); outline-offset:1px}
 
 /* ---- one turn ---- */
 .aic-turn{margin:0 0 22px}
@@ -240,3 +246,68 @@
   position:absolute; left:-3px; top:10px; width:5px; height:5px; border-radius:50%;
   background:var(--aic-line); outline:2px solid var(--aic-panel);
 }
+
+/* opts.inlineTools' answer to the trace above: every call, always visible,
+   as a pill rather than a summary line that opens into one. */
+.aic-toolpills{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 12px}
+.aic-pill{
+  display:inline-flex; align-items:center; gap:5px;
+  border:1px solid var(--aic-line); background:var(--aic-chip); color:var(--aic-ink-soft);
+  border-radius:999px; padding:3px 10px 3px 8px; font-size:11.5px; font-weight:600;
+}
+.aic-pill::before{content:''; width:5px; height:5px; border-radius:50%; background:var(--aic-ink-faint)}
+
+/* ---- the permission prompt ---- */
+/* Sits between the header and the transcript, only while a run is waiting
+   on a tool decision — see chat.js's board_permission handling. A banner
+   that takes an answer, not a status line that reports one. */
+.aic-permission{
+  padding:12px var(--aic-pad); border-bottom:1px solid var(--aic-line-soft);
+  background:var(--aic-bg);
+}
+.aic-permission-title{font-size:13px; font-weight:640; color:var(--aic-ink)}
+.aic-permission-detail{margin:4px 0 0; font-size:12.5px; color:var(--aic-ink-soft); line-height:1.5}
+.aic-permission-buttons{display:flex; gap:8px; margin-top:10px}
+.aic-permission-buttons .aic-btn{padding:6px 14px}
+
+/* opts.thinkingGlyphs: the CLI's own cycling asterisk instead of the plain
+   spinning ring, sized and centred the same way .aic-star already is. */
+.aic-star.aic-glyph{
+  width:auto; height:auto; background:none; animation:none;
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; line-height:1; color:var(--aic-accent);
+}
+
+/* ---- windowed mode (opts.windowed) ---- */
+/* The wrap stops being a click-catching, full-viewport scrim host and
+   becomes a transparent layer the box sits somewhere inside of — a host
+   with several of these open does not want N overlapping dimmers, and the
+   canvas underneath must stay reachable everywhere the box itself is not. */
+.aic-wrap.aic-windowed{background:none; pointer-events:none}
+.aic-wrap.aic-windowed .aic-box, .aic-wrap.aic-windowed .aic-scrim{pointer-events:auto}
+.aic-wrap.aic-windowed .aic-box{
+  /* left/top/width/height come from chat.js's applyRect(), always inline —
+     this only clears the base modal's own centring and entrance animation,
+     which a window that places itself has no use for. */
+  position:fixed; transform:none; animation:none; opacity:1;
+}
+.aic-wrap.aic-windowed .aic-head{cursor:grab}
+.aic-wrap.aic-windowed .aic-head:active{cursor:grabbing}
+
+/* Present in every instance's markup (see chat.js's modalHTML), but only
+   given a hit box once windowed — a plain modal's grips stay inert and
+   invisible. Kept inside the box's own edge rather than straddling it, so
+   .aic-box's overflow:hidden never clips one. */
+.aic-grip{position:absolute; z-index:1}
+.aic-wrap:not(.aic-windowed) .aic-grip{display:none}
+.aic-grip-n, .aic-grip-s{left:14px; right:14px; height:7px}
+.aic-grip-e, .aic-grip-w{top:14px; bottom:14px; width:7px}
+.aic-grip-n{top:0; cursor:ns-resize}
+.aic-grip-s{bottom:0; cursor:ns-resize}
+.aic-grip-e{right:0; cursor:ew-resize}
+.aic-grip-w{left:0; cursor:ew-resize}
+.aic-grip-ne, .aic-grip-nw, .aic-grip-se, .aic-grip-sw{width:14px; height:14px}
+.aic-grip-ne{top:0; right:0; cursor:nesw-resize}
+.aic-grip-nw{top:0; left:0; cursor:nwse-resize}
+.aic-grip-se{bottom:0; right:0; cursor:nwse-resize}
+.aic-grip-sw{bottom:0; left:0; cursor:nesw-resize}

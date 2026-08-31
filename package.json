@@ -1,6 +1,6 @@
 {
   "name": "@tiagopedras/ai-chat-engine",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A Claude Code chat modal any local app can drop in, plus the Python engine that runs the CLI behind it. Vanilla JS/CSS, no build step, no dependency.",
   "license": "UNLICENSED",
   "private": true,
