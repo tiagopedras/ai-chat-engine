@@ -61,6 +61,15 @@
  *                         opt-in or additive: a host that asks for none of
  *                         them gets exactly the read-only "ask" modal this
  *                         file has always drawn.
+ *   setHeader(),         a header a host names itself: a title, a caption
+ *   opts.onRename         line under it, and a state stamped on the box as
+ *                         `data-state` for a host stylesheet to pick up.
+ *                         For a window attached to something the host knows
+ *                         more about than the conversation does — a card, a
+ *                         task, a file. Passing `onRename` also makes the
+ *                         title editable in place and hands back what was
+ *                         typed. A host that calls neither gets the title
+ *                         this module derives from the session itself.
  */
 (function (global) {
   'use strict';
@@ -226,6 +235,11 @@
           '<div class="aic-names">' +
             '<strong id="' + uid + '-title">Chat</strong>' +
             '<span class="aic-for"></span>' +
+            // A second caption line, under .aic-for, for a host that has more
+            // to say about what this window is attached to than its owner's
+            // name — a path, a state, a provenance tag. Empty and hidden
+            // unless setHeader() puts something in it. See opts.onRename.
+            '<span class="aic-sub aic-hidden"></span>' +
           '</div>' +
           '<a class="aic-btn aic-ghost aic-desktop" href="#" target="_blank" rel="noopener"' +
             ' title="Imports this session into Claude Desktop and carries it on there">Open in Claude</a>' +
@@ -455,6 +469,18 @@
     // cycling-glyph indicator, modelled on the Claude apps' CSS rather than
     // a copied asset (there is no asset — the apps draw this too).
     const thinkingGlyphs = !!opts.thinkingGlyphs;
+    // A host that names the window itself — see setHeader() and the header
+    // block in render(). Supplying `onRename` is also what makes the title
+    // editable in place: without it the title is a label, with it the same
+    // element takes a double-click and hands back what was typed. A host
+    // that never calls setHeader() gets the title this module has always
+    // derived from the session itself.
+    const onRename = typeof opts.onRename === 'function' ? opts.onRename : null;
+    // What kind of conversation this host opens. `ask` — read-only — is the
+    // default and what every host of this widget was until now. A host whose
+    // sessions can write says `work` once here rather than per conversation,
+    // and the status line stops telling people Claude is only reading.
+    const defaultMode = opts.mode === 'work' ? 'work' : 'ask';
 
     let claudeStatus = null;
     let chatsIndex = {};
@@ -468,6 +494,19 @@
     // single-modal host never calls it, so this stays true and Escape works
     // exactly as it always has.
     let activeFlag = true;
+    // What a host has said this window is, or null while it has said nothing
+    // — see setHeader(). Held apart from `current` because it outlives any one
+    // conversation: the thing the window is attached to does not change when
+    // the session inside it does.
+    let header = null;
+    // Kept so destroy() can take them off window again — an instance created
+    // per card, and torn down with it, must not leave listeners or markup
+    // behind. See destroy().
+    let onWindowKeydown = null;
+    let winMoveBound = null, winUpBound = null;
+    // True only while the title is being edited, so a render mid-edit does not
+    // overwrite what is being typed.
+    let renaming = false;
     let originRect = null;   // set by growFrom(); consumed once, on next open
     let growOrigin = null;   // the rect last grown from, reused to shrink back into on close
     let winRect = null;      // current on-screen rect, windowed mode only
@@ -493,6 +532,7 @@
         scrim: $('.aic-scrim'),
         title: $('.aic-names strong'),
         forLine: $('.aic-for'),
+        subLine: $('.aic-sub'),
         desktop: $('.aic-desktop'),
         close: $('.aic-close'),
         status: $('.aic-status'),
@@ -535,10 +575,18 @@
         updateScrollPill();
       };
       // Escape closes the chat before it closes whatever is behind it — but
-      // only when this instance is the one the host says is on top.
-      window.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && current && activeFlag) { e.stopPropagation(); closeChat(); }
-      }, true);
+      // only when this instance is the one the host says is on top, and never
+      // while the title is being renamed, where Escape means "put the old
+      // name back". This listener captures, so it runs before the title's own
+      // handler and has to check rather than be stopped by it.
+      onWindowKeydown = function (e) {
+        if (e.key === 'Escape' && current && activeFlag && !renaming) {
+          e.stopPropagation();
+          closeChat();
+        }
+      };
+      window.addEventListener('keydown', onWindowKeydown, true);
+      wireRename();
       if (windowed) wireWindowed();
     }
 
@@ -620,8 +668,10 @@
         if (el) el.addEventListener('pointerdown', e => e.stopPropagation());
       });
       dom.grips.forEach(g => g.addEventListener('pointerdown', e => startWinDrag(g.dataset.edge, e)));
-      window.addEventListener('pointermove', onWinMove);
-      window.addEventListener('pointerup', onWinUp);
+      winMoveBound = onWinMove;
+      winUpBound = onWinUp;
+      window.addEventListener('pointermove', winMoveBound);
+      window.addEventListener('pointerup', winUpBound);
     }
 
     function startWinDrag(kind, e) {
@@ -881,6 +931,7 @@
     function openInternal(ownerId, ownerKey, sessionId, seed) {
       mount();
       current = { owner: ownerId, key: ownerKey, session: sessionId || '', seed: seed || '',
+                  mode: defaultMode,
                   turns: null, loading: false, run: runFor(sessionId) };
       dom.wrap.classList.add('aic-on');
       dom.wrap.setAttribute('aria-hidden', 'false');
@@ -966,13 +1017,86 @@
       return run ? run.turns : (current.turns || []);
     }
 
+    /* ---- the header a host names itself ------------------------------
+       Three things a host may know about this window that the session
+       inside it does not: what to call it, what to say under that, and
+       what state the thing it is attached to is in. All optional; a host
+       that never calls setHeader() sees none of this and gets the header
+       this module has always drawn. */
+
+    /** Paints title, caption and state class. `derived` is the name this
+        module worked out for itself, used whenever a host has offered
+        none. */
+    function paintHeader(derived) {
+      if (!dom) return;
+      // Never while the title is being edited: a render mid-edit would
+      // overwrite what is being typed, cursor and all.
+      if (!renaming) {
+        dom.title.textContent = (header && header.title) || derived || 'Chat';
+      }
+      const sub = (header && header.subtitle) || '';
+      dom.subLine.textContent = sub;
+      dom.subLine.classList.toggle('aic-hidden', !sub);
+      // One class rather than a set, so a host restyles the frame by state
+      // without this module having any opinion on what the states are.
+      const state = (header && header.runState) || '';
+      if (dom.box.dataset.state !== state) dom.box.dataset.state = state;
+    }
+
+    /**
+     * What this window is attached to, in a host's own words.
+     *
+     * `{title, subtitle, runState}`, all optional. Called as often as the
+     * host likes — a card whose name, folder or state changed repaints
+     * through here rather than by reopening anything.
+     */
+    function setHeader(spec) {
+      header = spec || null;
+      paintHeader(null);
+    }
+
+    /** Double-click the title to rename, Enter or blur to commit, Escape to
+        put it back. Only wired when a host passed `onRename`. */
+    function wireRename() {
+      if (!onRename || !dom) return;
+      const el = dom.title;
+      el.title = 'Double-click to rename';
+      el.addEventListener('dblclick', () => {
+        renaming = true;
+        el.contentEditable = 'true';
+        el.spellcheck = false;
+        el.focus();
+        const sel = window.getSelection();
+        if (sel && sel.selectAllChildren) sel.selectAllChildren(el);
+      });
+      // A drag on the header must not start from inside a title being
+      // edited, or selecting a word would move the window instead.
+      el.addEventListener('pointerdown', e => { if (renaming) e.stopPropagation(); });
+      el.addEventListener('keydown', e => {
+        if (e.key !== 'Enter' && e.key !== 'Escape') return;
+        e.preventDefault();
+        // Stops the window-level handler reading this Escape as "close me".
+        e.stopPropagation();
+        if (e.key === 'Escape') el.textContent = (header && header.title) || '';
+        el.blur();
+      });
+      el.addEventListener('blur', () => {
+        renaming = false;
+        el.contentEditable = 'false';
+        const next = (el.textContent || '').trim();
+        const was = (header && header.title) || '';
+        if (next && next !== was) onRename(next);
+        else el.textContent = was;
+      });
+    }
+
     function render() {
       const c = current;
       if (!c || !dom) return;
       const run = currentRun();
       const row = sessionsFor(c.key).find(s => s.id === c.session);
 
-      dom.title.textContent = (row && row.title) || (run && run.title) || 'New chat';
+      paintHeader((row && row.title) || (run && run.title) || 'New chat');
       dom.forLine.textContent = (opts.ownerLabel && opts.ownerLabel(c.owner)) || '';
 
       if (desktopLink && c.session) {
@@ -1368,6 +1492,33 @@
     // always has.
     function setActive(v) { activeFlag = !!v; }
 
+    /**
+     * Takes this instance off the page for good: its markup out of the body,
+     * its listeners off window, its runs aborted.
+     *
+     * closeChat() only hides the window, because a plain host opens and
+     * closes the same one all day and rebuilding it each time would be
+     * waste. A host that creates an instance per thing — one per card, say —
+     * needs the other half, or every instance it ever opened stays in the
+     * document, still listening, and a `document.querySelector` for anything
+     * inside one finds whichever was created first.
+     */
+    function destroy() {
+      Object.keys(runs).forEach(function (id) {
+        const run = runs[id];
+        if (run && run.ctrl) { try { run.ctrl.abort(); } catch (err) { /* already gone */ } }
+        delete runs[id];
+      });
+      if (runTicker) { clearInterval(runTicker); runTicker = null; }
+      if (current) { current = null; aicOpenCount = Math.max(0, aicOpenCount - 1); }
+      if (aicOpenCount === 0) document.body.classList.remove('aic-chatting');
+      if (onWindowKeydown) { window.removeEventListener('keydown', onWindowKeydown, true); onWindowKeydown = null; }
+      if (winMoveBound) { window.removeEventListener('pointermove', winMoveBound); winMoveBound = null; }
+      if (winUpBound) { window.removeEventListener('pointerup', winUpBound); winUpBound = null; }
+      if (dom && dom.root && dom.root.parentNode) dom.root.parentNode.removeChild(dom.root);
+      dom = null;
+    }
+
     return {
       loadStatus, loadSessions,
       available, status, home,
@@ -1375,7 +1526,7 @@
       renderSection,
       openNew, openSession, closeChat, isOpen,
       forget,
-      growFrom, setRect, setZIndex, setActive
+      growFrom, setRect, setZIndex, setActive, setHeader, destroy
     };
   }
 
