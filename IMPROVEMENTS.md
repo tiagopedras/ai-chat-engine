@@ -4,6 +4,12 @@ Ideas and unfinished work for this project, separate from `README.md`.
 
 ## New ideas, not started
 
+**A way to test the package locally.** No local `file:` symlink trick is
+usable (deployed on Vercel), so right now the only way to try a change in a
+consuming project is to publish a version first. Some local-loop option
+(`npm link`, `npm pack` + install the tarball, or similar) so changes here
+can be checked in `to-dos` or another host before cutting a release.
+
 **Timestamp in the modal's top bar.** Show when the chat was started, at the
 top of the modal, alongside the rest of the header.
 
