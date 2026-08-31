@@ -46,21 +46,36 @@ the package.
    its own position or depth), multi-instance support (each `create()` call
    is independent — several can be open at once), a permission-prompt
    banner (`board_permission` line + `transport.answerPermission`),
-   `opts.inlineTools` (tool calls as visible pills), `opts.thinkingGlyphs`
-   (the CLI's cycling asterisk), and markdown parity (ordered lists,
-   `__bold__`). See the README's "Several open at once, and windowed mode"
-   and "Permission prompts" sections. Verified in a real Chromium session
-   (multi-instance isolation, drag/resize math, the permission round trip,
-   the FLIP animation settling correctly, `aic-chatting`'s open-count fix so
-   one window closing doesn't strip it while another is still open) — not
-   just read over.
+   `opts.inlineTools` (the full turn in chronological order — text as
+   markdown prose, tool calls as pills, in the order they actually
+   happened, for a live run), `opts.thinkingGlyphs` (the CLI's cycling
+   asterisk), and markdown parity (ordered lists, `__bold__`). See the
+   README's "Several open at once, and windowed mode" and "Permission
+   prompts" sections. Verified in a real Chromium session — multi-instance
+   isolation, drag/resize math, the permission round trip, the FLIP
+   animation settling correctly, `aic-chatting`'s open-count fix so one
+   window closing doesn't strip it while another is still open, and the
+   flow ordering itself (text → tool → tool → text, in that exact order,
+   confirmed against the rendered DOM) — not just read over.
 
-   Known gaps, called out rather than silently skipped: renaming a
-   conversation by double-clicking its title (`SessionModal.tsx` has this,
-   `chat.js` doesn't yet), and `SessionModal`'s five typed transcript entry
-   kinds (`user`/`assistant`/`tool`/`result`/`error`) vs this module's
-   ask-and-reply turns — `inlineTools` gets most of the visible effect
-   without that deeper data-model change.
+   `ai-board-00` flagged that the five typed transcript kinds
+   (`user`/`assistant`/`tool`/`result`/`error`) aren't a nice-to-have —
+   each renders differently and that *is* the transcript's content, so a
+   first pass that only pill-ified tool calls without fixing the ordering
+   would have blocked adoption. `inlineTools` now covers all of it: a
+   bubble, markdown prose, a pill row, red text, in the order they
+   happened. One real gap left: renaming a conversation by double-clicking
+   its title (`SessionModal.tsx` has this, `chat.js` doesn't yet) — minor
+   by comparison, still open.
+
+   Ordering for a *replayed* transcript was still an approximation until
+   `ai-board-00` fixed `chatEngine.ts`'s `ChatTurn` shape (`parts:
+   {type,text|name+input}[]`, in original block order, alongside the
+   unchanged `reply`/`tools` so nothing that reads only those breaks) and
+   flagged that `engine.py` had the identical gap. Both now send `parts`;
+   `chat.js`'s `loadTranscript` reads it when present, non-empty, and falls
+   back to the old tools-then-text guess otherwise. Verified both paths
+   render correctly in the same Chromium session.
 
 2. **The Node engine (`session.ts`, `sessionPool.ts`, `chatEngine.ts`,
    `describeTool.ts`, `auth.ts`, `liveness.ts`, and the card/chat types) —

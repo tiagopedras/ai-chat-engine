@@ -281,7 +281,16 @@
 
        status()                        -> Promise<{available, work, cwd, home, model, ...}>
        sessions()                      -> Promise<{chats: {ownerKey: [...]}}>
-       transcript(sessionId, cwd)      -> Promise<{turns: [...], toobig}>
+       transcript(sessionId, cwd)      -> Promise<{turns: [...], toobig}>, each turn
+                                           {ask, reply, tools}, OPTIONALLY plus `parts` —
+                                           the same content in the order it happened
+                                           ({type:'text',text} | {type:'tool',name,input}),
+                                           read in preference to reply/tools when present
+                                           and non-empty. engine.py sends it; a transport
+                                           that doesn't falls back to the old
+                                           tools-then-reply approximation, same as a live
+                                           run's own fallback for a reply with no streamed
+                                           text at all.
        run(payload, signal)            -> AsyncIterable<string>, one stream-json line per
                                            step (an AbortController's signal to honour;
                                            payload is {prompt, mode, session, owner, title}).
@@ -915,10 +924,22 @@
       try {
         const data = await transport.transcript(sessionId, (row && row.cwd) || '');
         if (!current || current.session !== sessionId) return;
-        current.turns = data.toobig ? [] : data.turns.map(t => ({
-          ask: t.ask, reply: t.reply, error: '', cost: 0,
-          tools: (t.tools || []).map(x => toolLabel(x.name, x.input, (row && row.cwd) || ''))
-        }));
+        current.turns = data.toobig ? [] : data.turns.map(t => {
+          const tools = (t.tools || []).map(x => toolLabel(x.name, x.input, (row && row.cwd) || ''));
+          // `parts` is `reply`/`tools` again, but in the order Claude
+          // actually produced them — optional, since it's a newer field
+          // than `reply`/`tools` and not every backend sends it yet (see
+          // ../README.md's transcript() contract). Read it when a backend
+          // does; fall back to the old tools-then-text approximation
+          // otherwise, same as a live run's own fallback for "no streamed
+          // text at all" further down in handleRunEvent.
+          const flow = (Array.isArray(t.parts) && t.parts.length)
+            ? t.parts.map(p => p.type === 'tool'
+                ? { kind: 'tool', label: toolLabel(p.name, p.input, (row && row.cwd) || '') }
+                : { kind: 'text', text: p.text || '' })
+            : tools.map(label => ({ kind: 'tool', label: label })).concat(t.reply ? [{ kind: 'text', text: t.reply }] : []);
+          return { ask: t.ask, reply: t.reply, error: '', cost: 0, tools: tools, flow: flow };
+        });
         current.toobig = !!data.toobig;
       } catch (err) {
         if (current) current.loadErr =
@@ -1044,23 +1065,27 @@
        retryTurn()/editTurn() for why only the last one gets Retry and Edit. */
     function turnHTML(turn, i, showActs) {
       // Two ways to show what ran: collapsed into one line that opens into a
-      // timeline (the default — right for a short "ask" answer), or a pill
-      // per call sitting in the open (opts.inlineTools — right once tool use
-      // is the point of the turn, not a detail of how the answer got made).
-      // Not chronological interleaving with the reply text — both show every
-      // call the turn made, just in "hidden until asked" vs "always visible"
-      // form.
-      const trace = inlineTools ? toolPillsHTML(turn.tools) : traceHTML(turn, i);
+      // timeline (the default — right for a short "ask" answer), or every
+      // call shown where it actually happened (opts.inlineTools — right once
+      // tool use is the point of the turn, not a detail of how the answer
+      // got made). flowHTML() replaces the reply block entirely in that
+      // mode: the text is already in it, in order, alongside the pills.
+      const trace = inlineTools ? flowHTML(turn) : traceHTML(turn, i);
       const mineActs = showActs
         ? '<div class="aic-mineacts">' +
             '<button type="button" class="aic-mini" data-copy="' + esc(turn.ask) + '">Copy</button>' +
             '<button type="button" class="aic-mini" data-retry="' + i + '">Retry</button>' +
             '<button type="button" class="aic-mini" data-edit="' + i + '">Edit</button>' +
           '</div>' : '';
-      const reply = turn.reply
-        ? '<div class="aic-reply">' + mdBlock(turn.reply) +
-          '<div class="aic-acts"><button type="button" class="aic-copy" data-copy="' +
-          esc(turn.reply) + '">Copy</button></div></div>' : '';
+      // Non-inlineTools: the one reply block, text and its own Copy button.
+      // inlineTools: the text already went out via flowHTML above, so this
+      // is just that same Copy button, on its own.
+      const reply = inlineTools
+        ? (turn.reply ? '<div class="aic-acts"><button type="button" class="aic-copy" data-copy="' +
+            esc(turn.reply) + '">Copy</button></div>' : '')
+        : (turn.reply ? '<div class="aic-reply">' + mdBlock(turn.reply) +
+            '<div class="aic-acts"><button type="button" class="aic-copy" data-copy="' +
+            esc(turn.reply) + '">Copy</button></div></div>' : '');
       const err = turn.error
         ? '<p class="aic-err">' + esc(turn.error) +
           (turn.detail ? '<em>' + esc(turn.detail) + '</em>' : '') + '</p>' : '';
@@ -1071,12 +1096,36 @@
         trace + reply + err + '</div>';
     }
 
-    /* Every call this turn made, always visible — opts.inlineTools' answer
-       to traceHTML's collapsed one. */
-    function toolPillsHTML(tools) {
-      if (!tools || !tools.length) return '';
+    /* opts.inlineTools' whole transcript, in the order it happened: text
+       segments rendered as markdown prose (the same treatment a plain reply
+       gets), tool calls grouped into a pill row wherever they fall in that
+       order — not gathered into one block before or after the text. A live
+       run builds `turn.flow` as events actually arrive (handleRunEvent); a
+       replayed one approximates it (see loadTranscript) since the transport
+       contract doesn't carry original ordering. */
+    function flowHTML(turn) {
+      const flow = turn.flow || [];
+      if (!flow.length) return '';
+      const out = [];
+      let toolRun = null;
+      const flushTools = () => { if (toolRun) { out.push(pillsHTML(toolRun)); toolRun = null; } };
+      flow.forEach(seg => {
+        if (seg.kind === 'tool') { (toolRun = toolRun || []).push(seg.label); }
+        // Wrapped in .aic-reply for its typography alone (font size, line
+        // height, paragraph spacing) — not for the Copy button that class
+        // usually comes with; the one Copy button for the whole turn is
+        // added once, after this, by turnHTML.
+        else { flushTools(); out.push('<div class="aic-reply">' + mdBlock(seg.text) + '</div>'); }
+      });
+      flushTools();
+      return '<div class="aic-flow">' + out.join('') + '</div>';
+    }
+
+    /* One row of tool-call pills. Used by flowHTML for a run of consecutive
+       calls with no text between them. */
+    function pillsHTML(labels) {
       return '<div class="aic-toolpills">' +
-        tools.map(t => '<span class="aic-pill">' + esc(t) + '</span>').join('') +
+        labels.map(l => '<span class="aic-pill">' + esc(l) + '</span>').join('') +
         '</div>';
     }
 
@@ -1177,11 +1226,17 @@
             if (run.seen[seenKey]) return;
             run.seen[seenKey] = 1;
             turn.reply += (turn.reply ? '\n\n' : '') + b.text;
+            // `flow` is the same content as `reply`/`tools`, kept in arrival
+            // order instead of text-then-tools-at-the-end — see
+            // opts.inlineTools' flowHTML(), the only thing that reads it.
+            turn.flow.push({ kind: 'text', text: b.text });
             run.status = 'writing';
           } else if (b.type === 'thinking') {
             run.status = 'thinking';
           } else if (b.type === 'tool_use') {
-            turn.tools.push(toolLabel(b.name, b.input, run.cwd));
+            const label = toolLabel(b.name, b.input, run.cwd);
+            turn.tools.push(label);
+            turn.flow.push({ kind: 'tool', label: label });
             run.status = b.name;
           }
         });
@@ -1189,8 +1244,16 @@
       }
       if (d.type === 'result') {
         // The last word on what the answer was — the streamed blocks were the
-        // running commentary, this is the text Claude finished with.
-        if (typeof d.result === 'string' && d.result.trim()) turn.reply = d.result;
+        // running commentary, this is the text Claude finished with. `flow`
+        // is left alone: for the CLI this text is virtually always what the
+        // streamed blocks already said, and re-diffing against it here risks
+        // showing something twice. The one case worth covering is a run that
+        // never streamed any text at all (a very fast reply, say) — then
+        // there is nothing in `flow` to show without this.
+        if (typeof d.result === 'string' && d.result.trim()) {
+          turn.reply = d.result;
+          if (!turn.flow.some(seg => seg.kind === 'text')) turn.flow.push({ kind: 'text', text: d.result });
+        }
         if (d.session_id) run.session = d.session_id;
         if (typeof d.total_cost_usd === 'number') { turn.cost = d.total_cost_usd; run.cost += d.total_cost_usd; }
         if (d.is_error && !turn.error) turn.error = 'ended in an error (' + (d.subtype || 'unknown') + ')';
@@ -1216,7 +1279,7 @@
         turns: (rspec.turns || []).slice(), started: Date.now(), ms: 0, cost: 0,
         seen: {}, ctrl: new AbortController()
       };
-      const turn = { ask: rspec.ask, reply: '', tools: [], error: '', detail: '', cost: 0 };
+      const turn = { ask: rspec.ask, reply: '', tools: [], flow: [], error: '', detail: '', cost: 0 };
       run.turns.push(turn);
       if (current && current.owner === run.owner) current.run = run;
       render();

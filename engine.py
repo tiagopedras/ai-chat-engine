@@ -201,7 +201,7 @@ def transcript_read(session_id, cwd, config_dir=None):
                 if row.get("type") == "user":
                     said = _text_blocks(msg.get("content"))
                     if said.strip():
-                        turns.append({"ask": said, "reply": "", "tools": [],
+                        turns.append({"ask": said, "reply": "", "tools": [], "parts": [],
                                       "at": row.get("timestamp") or ""})
                 elif row.get("type") == "assistant" and turns:
                     turn = turns[-1]
@@ -210,9 +210,19 @@ def transcript_read(session_id, cwd, config_dir=None):
                             continue
                         if block.get("type") == "text" and block.get("text"):
                             turn["reply"] += ("\n\n" if turn["reply"] else "") + block["text"]
+                            # `parts` is `reply`/`tools` again, but in the
+                            # order Claude actually produced them instead of
+                            # text-then-tools — a widget wants this to show
+                            # a tool call where it happened rather than
+                            # gathered before or after the text. `reply` and
+                            # `tools` stay populated too, so a reader that
+                            # only knows those two keeps working.
+                            turn["parts"].append({"type": "text", "text": block["text"]})
                         elif block.get("type") == "tool_use":
-                            turn["tools"].append({"name": block.get("name") or "",
-                                                  "input": block.get("input") or {}})
+                            name = block.get("name") or ""
+                            tool_input = block.get("input") or {}
+                            turn["tools"].append({"name": name, "input": tool_input})
+                            turn["parts"].append({"type": "tool", "name": name, "input": tool_input})
     except OSError:
         return None
     return {"turns": turns[-MAX_TURNS:], "toobig": False, "path": path}

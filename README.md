@@ -150,7 +150,7 @@ page that tried it.
 |---|---|---|---|
 | `/claude.json` | GET | — | `{available, work, cwd, home, model, timeout, config}` |
 | `/claude/sessions.json` | GET | — | `{chats: {ownerKey: [{id, title, started, updated, mode, cwd}, ...]}}` |
-| `/claude/transcript.json` | GET | `?session=<id>&cwd=<cwd>` | `{turns: [...], toobig, path}` |
+| `/claude/transcript.json` | GET | `?session=<id>&cwd=<cwd>` | `{turns: [...], toobig, path}` — each turn `{ask, reply, tools}` plus `parts`: the same content in the order it actually happened, read in preference to `reply`/`tools` when present |
 | `/claude/forget` | POST | `{owner, session}` | `{ok}` |
 | `/claude` | POST | `{prompt, mode, session, owner, title}` | `application/x-ndjson`, streamed: the CLI's own `stream-json` lines, plus a synthetic `{"type":"board_start",...}` first and a synthetic `{"type":"board_error",...}` if the run ends with no `result` line |
 | *(none by default)* | POST | `{requestId, decision}` | optional — see "Permission prompts" above. Point `opts.endpoints.permission` at whatever route your backend answers this on; `http_glue.py` doesn't define one. |
@@ -302,18 +302,23 @@ Two richer-transcript options pair naturally with windowed mode, since both
 are about a full work session rather than a short read-only answer, but
 either works standalone:
 
-- `opts.inlineTools: true` — each tool call is a pill sitting in the open,
-  instead of folded into the collapsed trace the plain modal uses. Same
-  information, always visible rather than hidden until asked.
+- `opts.inlineTools: true` — replaces the collapsed trace with the whole
+  turn, in the order it happened: text as markdown prose (the same styling
+  a plain reply gets), a row of pills wherever one or more tool calls fall
+  in that order. Chronological for a live run, since `handleRunEvent` builds
+  it as events actually arrive; a replayed transcript is chronological too
+  once its transport sends the `parts` field described under "The HTTP
+  contract" above, and falls back to an approximation (tools, then the
+  text) against one that doesn't.
 - `opts.thinkingGlyphs: true` — the CLI's own cycling asterisk
   (`· ✢ ✳ ∗ ✻ ✽ ✻ ∗ ✳ ✢`) instead of the plain spinning ring, in the same
   spot in the status line.
 
 What's still `SessionModal`-only and hasn't moved here: renaming a
-conversation by double-clicking its title, and a transcript addressed as
-five typed entry kinds (`user`/`assistant`/`tool`/`result`/`error`) rather
-than this module's ask-and-reply turns. Both are real gaps, not oversights —
-flagged rather than guessed at.
+conversation by double-clicking its title. `inlineTools` covers what its
+five typed entry kinds actually render as (a bubble, markdown prose, a
+pill, red text) — the one open question was ordering, not styling, and that
+gap is closed for a live run.
 
 ## Making it look like the host, not like `to-dos`
 

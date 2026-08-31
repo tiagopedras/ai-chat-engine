@@ -249,6 +249,13 @@
 
 /* opts.inlineTools' answer to the trace above: every call, always visible,
    as a pill rather than a summary line that opens into one. */
+/* opts.inlineTools' whole transcript: alternating .aic-reply blocks and
+   .aic-toolpills rows, in the order they happened. .aic-reply's own bottom
+   margin normally comes from its last paragraph, zeroed by the rule below —
+   right when there is one reply block per turn, wrong here where several
+   can sit back to back, so the gap moves to the wrapper itself instead. */
+.aic-flow > .aic-reply{margin-bottom:10px}
+.aic-flow > *:last-child{margin-bottom:0}
 .aic-toolpills{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 12px}
 .aic-pill{
   display:inline-flex; align-items:center; gap:5px;
