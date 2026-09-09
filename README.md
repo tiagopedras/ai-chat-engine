@@ -4,7 +4,7 @@ Lets any local, single-user tool give a thing it tracks — a task, a ticket, a
 note, a card on a canvas — its own list of Claude Code conversations,
 answering in a modal (or a window it places itself) over the host's own
 page. Pulled out of `to-dos`'s board, which is still the reference
-integration for the modal; `ai_board` is the reference integration for the
+integration for the modal; `ai_canvas` is the reference integration for the
 Node engine.
 
 One piece is required, the rest is optional and a host takes only what it
@@ -16,6 +16,18 @@ needs:
   Import this file itself, or point a `<script src>` at it — never copy its
   contents in, or a fix made here stops reaching whichever host has the
   copy.
+- **`interface/cards.js`** — optional, and the companion to the file above.
+  `chat.js` draws one conversation; this draws none, and holds instead the
+  arithmetic a host needs to lay several of them out on a canvas: where a
+  card sits, which group it belongs to, the box around a group and how that
+  box refuses to be smaller than what is in it. Pure functions over plain
+  objects, no DOM and no Node built-ins, so the same file serves an Electron
+  main process reasoning about a canvas it never draws and a browser page
+  drawing one it never persists. Named ESM exports, plus one global
+  (`window.AICards`) for a host loading it with a script tag. `cards.d.ts`
+  beside it types the lot. It stores nothing: a host keeps its own file and
+  this module never learns its shape, the same boundary the Node engine
+  draws.
 - **`engine.py`** — optional. Spawns `claude`, streams its `stream-json`
   output, and keeps an index of which sessions belong to which owner. No web
   framework. Only a Python host needs this file at all.
@@ -373,7 +385,7 @@ larger question than `engine.py` does, not a faster version of the same one
 — see "Two engines, one contract" below for where they overlap and where
 they don't.
 
-Ported out of `ai_board`, which drove this split: it wanted to fold its own
+Ported out of `ai_canvas`, which drove this split: it wanted to fold its own
 card-tracking and chat backend into this package rather than keep
 reinventing them per host. Stripped out along the way, per the boundary
 that split agreed on — a host's own business, not a session's:
@@ -438,7 +450,7 @@ a WebSocket, whatever). Everything moves through these three callbacks
 rather than a return value, because a session's own state changes on its
 own schedule, not on the host's.
 
-What every host had to build itself in `ai_board` and now doesn't:
+What every host had to build itself in `ai_canvas` and now doesn't:
 throttled event batching (a card that's `needs_you` or `error` flushes
 immediately; anything else coalesces every 120ms so a dozen live sessions
 don't repaint faster than anything can usefully draw), orphan detection
@@ -477,7 +489,7 @@ Same `ask`-only limit `engine.py` has today — there's no config path to turn
 ### The two store ports
 
 Persistence is two small interfaces rather than a format this package
-owns — a host answers each however it already saves things (`ai_board`'s
+owns — a host answers each however it already saves things (`ai_canvas`'s
 own `board.json`, adapted, in its case).
 
 ```ts
@@ -511,7 +523,7 @@ A card carries two ids: `id`, assigned the moment it's created, and
 on every `SessionCard` this engine emits, on purpose — a host mapping cards
 onto its own grouping needs whichever one its own records were filed
 under, and that can be either one depending on when the filing happened.
-`ai_board` learned this the expensive way: project membership was
+`ai_canvas` learned this the expensive way: project membership was
 re-derived from the card's `id` alone in four different places, and a
 session assigned to a project *after* it already had a `sessionId` fell
 through every one of them. Resolve `card.sessionId ?? card.id` once, in one
@@ -551,6 +563,6 @@ its pieces are individually verified — `describeTool`, `unwrapSlashCommand`,
 `checkAuth` against a real installed CLI (a real authenticated response
 came back), `SessionPool`/`ChatEngine` constructing and wiring correctly
 against fake store implementations. Not yet exercised: a real session
-actually spawned through `SessionPool.create()` end to end, and `ai_board`
+actually spawned through `SessionPool.create()` end to end, and `ai_canvas`
 adopting it as its own main-process layer, which is the integration that
 will actually prove the `CardStore`/`ChatStore` ports are the right shape.

@@ -148,7 +148,7 @@
 .aic-foot .aic-btn{flex:none}
 .aic-status{
   display:flex; align-items:center; gap:8px; padding:8px 16px;
-  font-size:12px; color:var(--aic-ink-faint); border-bottom:1px solid var(--aic-line-soft);
+  font-size:12px; color:var(--aic-ink-faint); border-top:1px solid var(--aic-line-soft);
 }
 .aic-status.aic-live{color:var(--aic-ink-soft)}
 .aic-doing{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}

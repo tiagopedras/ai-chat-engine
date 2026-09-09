@@ -6,13 +6,17 @@ host's existing `BaseHTTPRequestHandler` subclass calls into, because most
 small local tools (this one included) already have one of those and gain
 nothing from a second HTTP stack sitting next to it.
 
-A host wires four routes and one guard header. Route names are the host's own
+A host wires nine routes and one guard header. Route names are the host's own
 choice; these are only the ones this repo's apps happen to use:
 
     GET  /claude.json              -> endpoints.status()
     GET  /claude/sessions.json     -> endpoints.sessions()
     GET  /claude/transcript.json   -> endpoints.transcript(session, cwd)
+    GET  /claude/attachable.json   -> endpoints.attachable()
     POST /claude/forget            -> endpoints.forget(owner, session)
+    POST /claude/assign            -> endpoints.assign(owner, session, to)
+    POST /claude/note              -> endpoints.note(owner, session, prompt)
+    POST /claude/attach            -> endpoints.attach(owner, session, cwd, title)
     POST /claude                   -> endpoints.stream(handler, payload)
 
 Every POST is refused unless the request carries the guard header (default
@@ -25,7 +29,7 @@ header and it closes the hole; see `endpoints.guard_ok(handler)`.
 import json
 import re
 
-from engine import MAX_PROMPT, OWNER_KEY, SESSION_ID, RunLimitError, transcript_read
+from engine import MAX_PROMPT, MAX_TITLE, OWNER_KEY, SESSION_ID, RunLimitError, transcript_read
 
 
 class ChatEndpoints:
@@ -55,12 +59,53 @@ class ChatEndpoints:
             return None, {"error": "no transcript on disk for that session"}
         return got, None
 
+    def attachable(self):
+        """Sessions Claude Code has on disk that this engine doesn't already
+        know about — conversations that started in a terminal, or in Claude
+        Desktop, rather than from this app. For a host offering "attach a
+        session that started elsewhere"."""
+        return {"sessions": self.engine.list_sessions()}
+
     # ---- POSTs ----
 
     def forget(self, owner, session_id):
         if not OWNER_KEY.match(owner or "") or not SESSION_ID.match(session_id or ""):
             return None, {"error": "bad owner or session id"}
         return {"ok": self.engine.sessions.forget(owner, session_id)}, None
+
+    def assign(self, owner, session_id, to_owner):
+        """Re-files one conversation under a different owner. For a host that
+        lets filing be decided after the fact — a card dragged onto something,
+        a session picked up from a list and pointed at a task."""
+        if not OWNER_KEY.match(owner or "") or not OWNER_KEY.match(to_owner or ""):
+            return None, {"error": "bad owner key"}
+        if not SESSION_ID.match(session_id or ""):
+            return None, {"error": "not a session id"}
+        return {"ok": self.engine.sessions.assign(owner, session_id, to_owner)}, None
+
+    def attach(self, owner, session_id, cwd, title):
+        """Files a session Claude Code already has on disk under an owner
+        here, the same as if it had been started from this app — the filing
+        itself is record(), the one that already runs at the end of a normal
+        run. cwd is required: a row with no working directory is one this
+        engine could never resume, since that is how it finds the transcript
+        again."""
+        if not OWNER_KEY.match(owner or "") or not SESSION_ID.match(session_id or ""):
+            return None, {"error": "bad owner or session id"}
+        cwd = str(cwd or "")
+        if not cwd:
+            return None, {"error": "no working directory for that session"}
+        title = str(title or "Untitled conversation")[:MAX_TITLE]
+        self.engine.sessions.record(owner, session_id, title, "ask", cwd)
+        return {"ok": True}, None
+
+    def note(self, owner, session_id, prompt):
+        """Records the prompt a conversation was started to run, once the
+        host has learned its id — see SessionStore.set_prompt for why."""
+        if not OWNER_KEY.match(owner or "") or not SESSION_ID.match(session_id or ""):
+            return None, {"error": "bad owner or session id"}
+        prompt = str(prompt or "")[:MAX_PROMPT]
+        return {"ok": self.engine.sessions.set_prompt(owner, session_id, prompt)}, None
 
     def stream(self, handler, payload):
         """Runs a prompt and writes the NDJSON response straight onto

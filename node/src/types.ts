@@ -1,6 +1,6 @@
 /**
  * The contract between the session engine (this package) and whatever draws
- * a card with it — ported out of `ai_board`'s `src/shared/types.ts`, with
+ * a card with it — ported out of `ai_canvas`'s `src/shared/types.ts`, with
  * everything that is a host's own business rather than a session's stripped
  * out: no `geometry` (position, size, depth — the host's canvas owns that),
  * no `projectId` (grouping cards into sections is the host's, not this
@@ -194,10 +194,10 @@ export interface StoredCard {
 }
 
 /**
- * The persistence port for cards — decision from the ai_board split: this
+ * The persistence port for cards — decision from the ai_canvas split: this
  * package calls a small interface rather than owning a file format. A host
  * implements this against however it already saves things (a JSON file, a
- * database, whatever `ai_board`'s own board.json becomes once geometry and
+ * database, whatever `ai_canvas`'s own board.json becomes once geometry and
  * projects are its own concern again).
  */
 export interface CardStore {

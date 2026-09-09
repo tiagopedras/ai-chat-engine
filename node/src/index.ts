@@ -1,7 +1,7 @@
 /**
  * `@tiagopedras/ai-chat-engine/node` — the session engine, without a canvas.
  *
- * Ported out of `ai_board`'s `src/main/*`, with everything that was a
+ * Ported out of `ai_canvas`'s `src/main/*`, with everything that was a
  * board's own business rather than a session's taken back out: no
  * geometry, no window rects, no projects, no view state. A host wires
  * `SessionPool` to its own UI and its own `CardStore`, and `ChatEngine` to

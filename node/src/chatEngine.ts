@@ -19,7 +19,7 @@ import { unwrapSlashCommand } from './slashCommand.js'
  * turn `work` on, so asking for it is refused exactly the way `engine.py`'s
  * `work` mode refuses it when a host's own config hasn't opted in.
  *
- * Ported out of `ai_board`'s `ChatEngine`. What changed: `resolveCwd` no
+ * Ported out of `ai_canvas`'s `ChatEngine`. What changed: `resolveCwd` no
  * longer reads `SessionPool.projects()` — projects are a host concept, not
  * this package's — so a host that wants a brand-new chat's cwd resolved
  * from something like a project passes `resolveOwnerCwd` in; a resumed

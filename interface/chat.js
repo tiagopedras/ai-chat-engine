@@ -81,7 +81,7 @@
   }
 
   /* Code spans first, so a `**bold**` marker sitting inside backticks is
-     never mistaken for a real one — same ordering ai_board's Markdown.tsx
+     never mistaken for a real one — same ordering ai_canvas's Markdown.tsx
      uses, kept deliberately narrow: show what falls outside this subset
      exactly as written rather than guess at it. */
   function mdInline(s) {
@@ -245,7 +245,6 @@
             ' title="Imports this session into Claude Desktop and carries it on there">Open in Claude</a>' +
           '<button class="aic-btn aic-ghost aic-close" type="button">Close</button>' +
         '</header>' +
-        '<div class="aic-status" aria-live="polite"></div>' +
         // Shown between the header and the transcript whenever the run is
         // waiting on a tool decision — see handlePermissionEvent(). Not a
         // status line: it takes an answer rather than reporting progress.
@@ -267,6 +266,10 @@
           // on every render.
           '<button type="button" class="aic-scrollpill aic-hidden">New messages ↓</button>' +
         '</div>' +
+        // Sits just above the composer rather than under the header, so the
+        // spinner reads as "about to send" / "working on your last message"
+        // next to the input, not as part of the chrome up top.
+        '<div class="aic-status" aria-live="polite"></div>' +
         '<form class="aic-foot" autocomplete="off">' +
           '<textarea class="aic-input" rows="1" spellcheck="false"></textarea>' +
           '<button class="aic-btn aic-primary aic-send" type="submit">Send</button>' +
@@ -1491,6 +1494,12 @@
     // calls this, so it defaults to true and Escape behaves exactly as it
     // always has.
     function setActive(v) { activeFlag = !!v; }
+    // A host's own notion of "parked while the desk is being cleared" — this
+    // module has no opinion on when that is true, only on how the window
+    // looks while it is. One class, so a host restyles it freely; the click
+    // that brings everything back is already the host's, wired through
+    // onFocus.
+    function setPeeked(v) { if (dom) dom.wrap.classList.toggle('aic-peeked', !!v); }
 
     /**
      * Takes this instance off the page for good: its markup out of the body,
@@ -1526,7 +1535,7 @@
       renderSection,
       openNew, openSession, closeChat, isOpen,
       forget,
-      growFrom, setRect, setZIndex, setActive, setHeader, destroy
+      growFrom, setRect, setZIndex, setActive, setPeeked, setHeader, destroy
     };
   }
 

@@ -113,6 +113,64 @@ class SessionStore:
                     self._write(chats)
                     return
 
+    def assign(self, owner, session_id, to_owner):
+        """Moves one session from one owner to another, keeping everything
+        recorded about it.
+
+        Filing is a decision made after the fact as often as before it. A
+        conversation starts loose, or under the wrong thing, and turns out to
+        belong somewhere: this is that move, and it is a move rather than a
+        forget plus a fresh record because the row carries a title, a mode, a
+        working directory and the date it started, none of which the caller
+        making the decision necessarily still has to hand.
+
+        A session already filed under the destination is left alone rather
+        than duplicated. Returns whether anything changed.
+        """
+        with self.lock:
+            chats = self.read()
+            rows = chats.get(owner, [])
+            moving = None
+            for row in rows:
+                if row.get("id") == session_id:
+                    moving = row
+                    break
+            if moving is None:
+                return False
+            if owner == to_owner:
+                return False
+
+            chats[owner] = [r for r in rows if r.get("id") != session_id]
+            if not chats[owner]:
+                chats.pop(owner, None)
+
+            target = chats.setdefault(to_owner, [])
+            if not any(r.get("id") == session_id for r in target):
+                moving["updated"] = datetime.datetime.now().isoformat(timespec="seconds")
+                target.append(moving)
+            self._write(chats)
+            return True
+
+    def set_prompt(self, owner, session_id, prompt):
+        """Records the prompt suggestion a conversation was started to run.
+
+        Called once, right after the line it came from is deleted off the
+        task — from then on this row is the only place the text survives, so
+        a host can show what the conversation was started to do, or offer to
+        put the prompt back on the task if it turns out to have been started
+        by mistake. Silently does nothing if the row isn't there yet; the
+        caller is expected to have just learned this session's id from the
+        same sessions index this reads from.
+        """
+        with self.lock:
+            chats = self.read()
+            for row in chats.get(owner, []):
+                if row.get("id") == session_id:
+                    row["prompt"] = prompt[:MAX_PROMPT]
+                    self._write(chats)
+                    return True
+            return False
+
     def forget(self, owner, session_id):
         """Drops it off this owner's list. The transcript itself is Claude
         Code's file and is left alone — this is the store forgetting a
@@ -147,6 +205,56 @@ def _text_blocks(content):
         if block.get("type") == "text":
             out.append(block.get("text") or "")
     return "\n\n".join(t for t in out if t)
+
+
+CMD_NAME = re.compile(r"<command-name>\s*(\S.*?)\s*</command-name>", re.S)
+CMD_WRAP = re.compile(r"<command-(?:name|message|args)>.*?</command-(?:name|message|args)>\s*", re.S)
+
+
+def _opening_line(raw):
+    """The first thing actually asked, out of one row's text — the slash
+    command name in place of Claude Code's own wrapper markup, when the row
+    is one of those and nothing else was typed alongside it. The three tags
+    a slash command wraps a message in don't come in a fixed order — /clear
+    puts command-name first, a skill invocation puts command-message first —
+    so this strips all three as a set rather than assuming one runs after
+    another."""
+    raw = raw.strip()
+    m = CMD_NAME.search(raw)
+    rest = CMD_WRAP.sub("", raw).strip()
+    if not m:
+        return rest or raw
+    return (m.group(1) + (" " + rest if rest else "")).strip()
+
+
+def _session_head(path):
+    """The working directory and opening line out of a transcript, reading
+    only as far as it takes to find both rather than the whole file. None on
+    a file this cannot make sense of at all."""
+    cwd = ""
+    title = ""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            for line in fh:
+                if cwd and title:
+                    break
+                line = line.strip()
+                if not line.startswith("{"):
+                    continue
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                if not cwd and row.get("cwd"):
+                    cwd = row["cwd"]
+                if title or row.get("type") != "user" or row.get("isSidechain") or row.get("isMeta"):
+                    continue
+                said = _opening_line(_text_blocks((row.get("message") or {}).get("content")))
+                if said:
+                    title = said
+    except OSError:
+        return None
+    return {"cwd": cwd, "title": title}
 
 
 def transcript_path(session_id, cwd, config_dir=None):
@@ -288,6 +396,64 @@ class Engine:
             "timeout": cfg["timeout"],
             "config": os.path.exists(self.config_path),
         }
+
+    def list_sessions(self, limit=60):
+        """Every session Claude Code has on disk, across every project it has
+        ever run in, newest first — a conversation that started in the
+        terminal rather than from this app, and never got filed under this
+        engine's own sessions.json. The Node engine already has an
+        equivalent, `pastSessions()`; this is the Python side of the same
+        thing, for a host that wants to offer "attach a session that started
+        elsewhere" — see AI-CANVAS.md in to-dos for why that exists.
+
+        Reads only as much of each transcript as it takes to find the
+        working directory and the first thing that was actually asked, never
+        the whole file — the same discipline transcript_read()'s size guard
+        applies elsewhere, just done by stopping early instead. A session
+        already filed under some owner is left out: there is nothing to
+        attach that is already attached.
+        """
+        root = os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude")
+        root = os.path.join(root, "projects")
+        filed = set()
+        for rows in self.sessions.read().values():
+            for row in rows:
+                if row.get("id"):
+                    filed.add(row["id"])
+
+        try:
+            project_names = os.listdir(root)
+        except OSError:
+            return []
+
+        out = []
+        for name in project_names:
+            project_dir = os.path.join(root, name)
+            try:
+                files = os.listdir(project_dir)
+            except OSError:
+                continue
+            for fname in files:
+                if not fname.endswith(".jsonl"):
+                    continue
+                session_id = fname[:-len(".jsonl")]
+                if not SESSION_ID.match(session_id) or session_id in filed:
+                    continue
+                path = os.path.join(project_dir, fname)
+                try:
+                    mtime = os.path.getmtime(path)
+                except OSError:
+                    continue
+                row = _session_head(path)
+                if not row or not row["cwd"]:
+                    continue
+                out.append({
+                    "id": session_id, "cwd": row["cwd"],
+                    "title": (row["title"] or "Untitled conversation")[:MAX_TITLE],
+                    "updated": datetime.datetime.fromtimestamp(mtime).isoformat(timespec="seconds"),
+                })
+        out.sort(key=lambda r: r["updated"], reverse=True)
+        return out[:limit]
 
     def argv(self, prompt, mode, session, cfg, binary):
         out = [binary, "-p", prompt, "--output-format", "stream-json", "--verbose"]

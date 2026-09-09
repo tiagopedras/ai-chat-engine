@@ -18,9 +18,9 @@ import { Session, type SessionInit } from './session.js'
  * Holds every session this engine is tracking — the piece a host's own IPC
  * or HTTP layer talks to.
  *
- * Ported out of `ai_board`'s `SessionPool`, with everything that was a
+ * Ported out of `ai_canvas`'s `SessionPool`, with everything that was a
  * board's business rather than a session's taken back out: no projects, no
- * geometry, no window rects, no view state, no depth ordering. `ai_board`
+ * geometry, no window rects, no view state, no depth ordering. `ai_canvas`
  * (or any other host) keeps a thin layer of its own on top of this for
  * those — see the package README's "The Node engine" section for the split.
  *

@@ -12,10 +12,13 @@
     "./chat.js": "./interface/chat.js",
     "./chat.css": "./interface/chat.css",
     "./node": "./node/dist/index.js",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./cards.js": "./interface/cards.js"
   },
   "files": [
     "interface/chat.js",
+    "interface/cards.js",
+    "interface/cards.d.ts",
     "interface/chat.css",
     "node/dist",
     "engine.py",
