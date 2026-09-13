@@ -87,9 +87,13 @@
 .aic-icon:hover{color:var(--aic-ink); border-color:var(--aic-ink-faint)}
 .aic-forget{font-size:15px; line-height:1}
 .aic-none{margin:0 0 8px; font-size:12.5px; color:var(--aic-ink-faint)}
+/* Matches .btn.dashed.small in every host that has one (to-dos' board.css) —
+   12px, padding 4/9, radius 6, weight 560 — so a host and this package don't
+   draw the same button two sizes. Hardcoded rather than a --aic-* token
+   because the token is shared with .aic-icon, which isn't part of that fold. */
 .aic-addsub{
   border:1px dashed var(--aic-line); background:none; color:var(--aic-ink-soft);
-  border-radius:var(--aic-radius-xs); padding:6px 10px; font-size:12.5px; font-weight:600; cursor:pointer;
+  border-radius:6px; padding:4px 9px; font-size:12px; font-weight:560; cursor:pointer;
 }
 .aic-addsub:hover{border-color:var(--aic-ink-faint); color:var(--aic-ink)}
 .aic-help{display:block; margin-top:6px; font-size:11.5px; color:var(--aic-ink-faint)}
