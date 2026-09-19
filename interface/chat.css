@@ -1,22 +1,31 @@
 /* ai_chat/interface/chat.css — styling for chat.js's modal and chat list.
  *
- * Self-contained: every colour, and now every radius, gap and the modal's
- * own font and size, is one of this file's own --aic-* tokens, so the
- * widget looks right in any host with no coordination required. A host that
- * wants to match its own palette or shape instead just overrides these
- * custom properties on `:root` or on whatever element it mounts under — no
- * build step, nothing to fork. See the two token blocks under `:root`
- * below: colour first, then shape and type.
+ * Self-contained: every colour, radius, shadow, size, weight and gap is one
+ * of this file's own --aic-* tokens, so the widget looks right in any host
+ * with no coordination required. A host that wants to match its own palette
+ * or shape instead just overrides these custom properties on `:root` or on
+ * whatever element it mounts under — no build step, nothing to fork. See the
+ * token blocks under `:root` below: colour first, then shape, type and depth.
  *
- * Each default reads Tenon's token first and falls back to the literal that
- * was here before. A host with Tenon loaded — the to-dos board, ai_canvas —
- * gets a modal in the design system's colours for free, and a host without
- * it gets exactly what it got before, because `var(--x, fallback)` is
- * resolved by the browser and needs nothing installed. That is the whole
- * reason it is written this way rather than as a dependency: this package
- * is dropped into hosts it does not control, and the one thing it must not
- * do is require them to load a stylesheet first. Overriding still wins over
- * both, so a host that wants its own blue says so and is obeyed.
+ * Each default reads Tenon's token first and falls back to a literal, so a
+ * host with Tenon loaded — the to-dos board, ai_canvas — gets a modal in the
+ * design system's colours, type and elevation for free, and a host without it
+ * still gets a finished widget, because `var(--x, fallback)` is resolved by
+ * the browser and needs nothing installed. That is the whole reason it is
+ * written this way rather than as a dependency: this package is dropped into
+ * hosts it does not control, and the one thing it must not do is require them
+ * to load a stylesheet first. Overriding still wins over both, so a host that
+ * wants its own blue says so and is obeyed.
+ *
+ * For colour, shadow and spacing that fallback is the literal that was here
+ * before, so a host without Tenon sees the same thing as always. For type and
+ * radius it is Tenon's own value instead: sizes, weights and corners were
+ * snapped to the nearest step of its scale rather than carried over, because
+ * a widget that draws its text a half pixel differently depending on whether
+ * a stylesheet is loaded is worse than one that is the same in both. What
+ * moved: sizes 9, 11 and 11.5 to 10 or 12, 12.5 to 12, 13 and 13.5 to 14, 15
+ * to 16; weights 560 and 640 to 600; the message bubble's corner from 14 to
+ * 10; line heights 1.45 and 1.55 to 1.5.
  *
  * Modelled on the claude.ai composer and thread — ../claude-chat-interface-
  * findings.md is the spec this follows, not background reading, and stays
@@ -50,14 +59,38 @@
      (a tighter modal, its own font, square corners) without fighting fixed
      numbers anywhere below. Colour tokens above are the ones worth
      overriding most often; these are the rest. */
-  --aic-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --aic-radius:    var(--tenon-radius-xl, 16px);  /* the modal itself */
-  --aic-radius-sm: var(--tenon-radius-lg, 10px);  /* input, rows, chips */
-  --aic-radius-xs: var(--tenon-radius-md, 8px);   /* buttons, icons */
+  --aic-font: var(--tenon-text-body-family,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  --aic-radius:      var(--tenon-radius-xl, 16px);       /* the modal itself */
+  --aic-radius-sm:   var(--tenon-radius-lg, 10px);       /* input, rows, bubble */
+  --aic-radius-xs:   var(--tenon-radius-md, 8px);        /* buttons, icons, code */
+  --aic-radius-xxs:  var(--tenon-radius-default, 6px);   /* the small buttons */
+  --aic-radius-full: var(--tenon-radius-full, 999px);    /* pills */
   --aic-modal-w: min(760px, calc(100vw - 48px));
   --aic-modal-h: min(720px, calc(100vh - 64px));
-  --aic-gap: 8px;           /* header and footer row gaps */
-  --aic-pad: 14px;          /* header and footer side padding */
+  --aic-gap: var(--tenon-dimension-100, 8px);   /* header and footer row gaps */
+  --aic-pad: var(--tenon-dimension-175, 14px);  /* header and footer side padding */
+
+  /* Type. Every size in this file used to be its own literal, half of them
+     on a half pixel; they are snapped to the nearest step of Tenon's scale
+     here and read nowhere else. The fallback is Tenon's own value rather
+     than the literal that was there before, so the widget is the same size
+     in a host with the stylesheet and a host without it. */
+  --aic-fs-xs: var(--tenon-typography-size-xs, 10px);
+  --aic-fs-sm: var(--tenon-typography-size-sm, 12px);
+  --aic-fs-md: var(--tenon-typography-size-md, 14px);
+  --aic-fs-lg: var(--tenon-typography-size-lg, 16px);
+  --aic-fw-medium:   var(--tenon-typography-weight-medium, 500);
+  --aic-fw-semibold: var(--tenon-typography-weight-semibold, 600);
+  --aic-lh-normal:   var(--tenon-typography-line-height-normal, 1.4);
+  --aic-lh-relaxed:  var(--tenon-typography-line-height-relaxed, 1.5);
+  --aic-lh-loose:    var(--tenon-typography-line-height-loose, 1.65);
+
+  /* Depth. The scrim and the two shadows, which were the last literal
+     colours left below. */
+  --aic-scrim:        var(--tenon-background-overlay, rgba(6,8,12,.45));
+  --aic-shadow-modal: var(--tenon-elevation-modal, 0 24px 60px rgba(6,8,12,.28));
+  --aic-shadow-pop:   var(--tenon-elevation-overlay, 0 6px 18px rgba(6,8,12,.18));
 }
 /* Dark, for a host without Tenon. With Tenon the block above already follows
    the theme, because every --tenon- name it reads is redefined under this
@@ -80,16 +113,16 @@
 
 /* ---- the list of conversations under one owner key ---- */
 .aic-field{margin:0 0 14px}
-.aic-field > span, .aic-field > summary{display:block; margin:0 0 6px; font-size:11.5px; font-weight:640;
+.aic-field > span, .aic-field > summary{display:block; margin:0 0 6px; font-size:var(--aic-fs-sm); font-weight:var(--aic-fw-semibold);
   text-transform:uppercase; letter-spacing:.03em; color:var(--aic-ink-faint)}
-.aic-sublabel{text-transform:none; letter-spacing:normal; font-weight:500}
+.aic-sublabel{text-transform:none; letter-spacing:normal; font-weight:var(--aic-fw-medium)}
 /* The collapsible variant of the section above — same label, wrapped in a
    native <details> instead of a plain <div> so a long chat list can be put
    away. The host remembers whether it was left open; this file only draws
    the triangle and makes the label the thing that's clickable. */
 .aic-collapse > summary{cursor:pointer; list-style:none; display:flex; align-items:center; gap:5px}
 .aic-collapse > summary::-webkit-details-marker{display:none}
-.aic-collapse > summary::before{content:'▸'; font-size:9px; display:inline-block}
+.aic-collapse > summary::before{content:'▸'; font-size:var(--aic-fs-xs); display:inline-block}
 .aic-collapse[open] > summary::before{content:'▾'}
 .aic-row{display:flex; align-items:stretch; gap:6px; margin:0 0 6px}
 .aic-open{
@@ -99,44 +132,45 @@
 }
 .aic-open:hover{border-color:var(--aic-ink-faint)}
 .aic-rowtitle{
-  font-size:13px; font-weight:600; color:var(--aic-ink);
+  font-size:var(--aic-fs-md); font-weight:var(--aic-fw-semibold); color:var(--aic-ink);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.aic-rowmeta{font-size:11.5px; color:var(--aic-ink-faint)}
-.aic-live{font-style:normal; color:var(--aic-accent); font-weight:600}
+.aic-rowmeta{font-size:var(--aic-fs-sm); color:var(--aic-ink-faint)}
+.aic-live{font-style:normal; color:var(--aic-accent); font-weight:var(--aic-fw-semibold)}
 .aic-work{font-style:normal; color:var(--aic-amber)}
 .aic-icon{
   flex:none; display:flex; align-items:center; padding:0 9px; border-radius:var(--aic-radius-xs);
   border:1px solid var(--aic-line); background:var(--aic-panel); color:var(--aic-ink-soft);
-  font-size:11.5px; font-weight:600; text-decoration:none; cursor:pointer;
+  font-size:var(--aic-fs-sm); font-weight:var(--aic-fw-semibold); text-decoration:none; cursor:pointer;
 }
 .aic-icon:hover{color:var(--aic-ink); border-color:var(--aic-ink-faint)}
-.aic-forget{font-size:15px; line-height:1}
-.aic-none{margin:0 0 8px; font-size:12.5px; color:var(--aic-ink-faint)}
+.aic-forget{font-size:var(--aic-fs-lg); line-height:1}
+.aic-none{margin:0 0 8px; font-size:var(--aic-fs-sm); color:var(--aic-ink-faint)}
 /* Matches .btn.dashed.small in every host that has one (to-dos' board.css) —
-   12px, padding 4/9, radius 6, weight 560 — so a host and this package don't
-   draw the same button two sizes. Hardcoded rather than a --aic-* token
-   because the token is shared with .aic-icon, which isn't part of that fold. */
+   12px, padding 4/9, radius 6 — so a host and this package don't draw the
+   same button two sizes. Its weight was 560 and is now Tenon's semibold,
+   the nearest step on the scale, which is the one place in that fold the
+   two drift apart by 40. */
 .aic-addsub{
   border:1px dashed var(--aic-line); background:none; color:var(--aic-ink-soft);
-  border-radius:6px; padding:4px 9px; font-size:12px; font-weight:560; cursor:pointer;
+  border-radius:var(--aic-radius-xxs); padding:4px 9px; font-size:var(--aic-fs-sm); font-weight:var(--aic-fw-semibold); cursor:pointer;
 }
 .aic-addsub:hover{border-color:var(--aic-ink-faint); color:var(--aic-ink)}
-.aic-help{display:block; margin-top:6px; font-size:11.5px; color:var(--aic-ink-faint)}
+.aic-help{display:block; margin-top:6px; font-size:var(--aic-fs-sm); color:var(--aic-ink-faint)}
 
 /* ---- the modal ---- */
 .aic-wrap{position:fixed; inset:0; z-index:80; display:none}
 .aic-wrap.aic-on{display:block}
 .aic-hidden{display:none !important}
-.aic-scrim{position:absolute; inset:0; background:rgba(6,8,12,.45); opacity:0; animation:aic-fade .18s ease forwards}
+.aic-scrim{position:absolute; inset:0; background:var(--aic-scrim); opacity:0; animation:aic-fade .18s ease forwards}
 .aic-box{
   position:absolute; left:50%; top:50%; width:var(--aic-modal-w);
   height:var(--aic-modal-h); display:flex; flex-direction:column;
   background:var(--aic-panel); border:1px solid var(--aic-line); border-radius:var(--aic-radius);
-  box-shadow:0 24px 60px rgba(6,8,12,.28); overflow:hidden;
+  box-shadow:var(--aic-shadow-modal); overflow:hidden;
   transform:translate(-50%,-50%) scale(.965); opacity:0;
   animation:aic-in .22s cubic-bezier(.2,.8,.3,1) forwards;
-  font:13px/1.5 var(--aic-font); color:var(--aic-ink);
+  font:var(--aic-fs-md)/var(--aic-lh-relaxed) var(--aic-font); color:var(--aic-ink);
 }
 @keyframes aic-fade{to{opacity:1}}
 @keyframes aic-in{to{transform:translate(-50%,-50%) scale(1); opacity:1}}
@@ -148,14 +182,14 @@
   border-bottom:1px solid var(--aic-line-soft);
 }
 .aic-names{flex:1; min-width:0}
-.aic-names strong{display:block; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.aic-names strong{display:block; font-size:var(--aic-fs-md); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .aic-for{
-  display:block; font-size:11.5px; color:var(--aic-ink-faint);
+  display:block; font-size:var(--aic-fs-sm); color:var(--aic-ink-faint);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 /* A host's own caption, on its own line under .aic-for — see setHeader(). */
 .aic-sub{
-  display:block; font-size:11.5px; color:var(--aic-ink-faint);
+  display:block; font-size:var(--aic-fs-sm); color:var(--aic-ink-faint);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 /* Only ever set when a host wired onRename, which is what puts the tooltip
@@ -169,7 +203,7 @@
 }
 .aic-btn{
   border:1px solid var(--aic-line); background:var(--aic-panel); color:var(--aic-ink-soft);
-  border-radius:var(--aic-radius-xs); padding:6px 12px; font-size:12.5px; font-weight:600; cursor:pointer;
+  border-radius:var(--aic-radius-xs); padding:6px 12px; font-size:var(--aic-fs-sm); font-weight:var(--aic-fw-semibold); cursor:pointer;
   text-decoration:none; display:inline-flex; align-items:center;
 }
 .aic-btn:hover{color:var(--aic-ink); border-color:var(--aic-ink-faint)}
@@ -178,7 +212,7 @@
 .aic-foot .aic-btn{flex:none}
 .aic-status{
   display:flex; align-items:center; gap:8px; padding:8px 16px;
-  font-size:12px; color:var(--aic-ink-faint); border-top:1px solid var(--aic-line-soft);
+  font-size:var(--aic-fs-sm); color:var(--aic-ink-faint); border-top:1px solid var(--aic-line-soft);
 }
 .aic-status.aic-live{color:var(--aic-ink-soft)}
 .aic-doing{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
@@ -200,9 +234,9 @@
 .aic-body{position:absolute; inset:0; overflow-y:auto; padding:16px}
 .aic-scrollpill{
   position:absolute; left:50%; bottom:14px; transform:translateX(-50%);
-  padding:6px 14px; border-radius:999px; border:1px solid var(--aic-line);
-  background:var(--aic-panel); color:var(--aic-ink-soft); font-size:12px; font-weight:600;
-  box-shadow:0 6px 18px rgba(6,8,12,.18); cursor:pointer;
+  padding:6px 14px; border-radius:var(--aic-radius-full); border:1px solid var(--aic-line);
+  background:var(--aic-panel); color:var(--aic-ink-soft); font-size:var(--aic-fs-sm); font-weight:var(--aic-fw-semibold);
+  box-shadow:var(--aic-shadow-pop); cursor:pointer;
 }
 .aic-scrollpill:hover{color:var(--aic-ink); border-color:var(--aic-ink-faint)}
 .aic-foot{
@@ -212,7 +246,7 @@
 .aic-input{
   flex:1; min-width:0; height:38px; max-height:160px; resize:none; overflow-y:auto;
   border:1px solid var(--aic-line); background:var(--aic-bg); color:var(--aic-ink);
-  border-radius:var(--aic-radius-sm); padding:9px 12px; font-size:13px; font-family:inherit; line-height:1.45;
+  border-radius:var(--aic-radius-sm); padding:9px 12px; font-size:var(--aic-fs-md); font-family:inherit; line-height:var(--aic-lh-relaxed);
 }
 .aic-input:focus{outline:none; border-color:var(--aic-ink-faint)}
 
@@ -232,8 +266,8 @@
 .aic-mine{display:flex; justify-content:flex-end; margin-bottom:14px}
 .aic-minewrap{display:flex; flex-direction:column; align-items:flex-end; gap:4px; max-width:82%}
 .aic-bubble{
-  max-width:100%; background:var(--aic-chip); border-radius:14px; padding:9px 13px;
-  font-size:13px; line-height:1.55; color:var(--aic-ink);
+  max-width:100%; background:var(--aic-chip); border-radius:var(--aic-radius-sm); padding:9px 13px;
+  font-size:var(--aic-fs-md); line-height:var(--aic-lh-relaxed); color:var(--aic-ink);
 }
 /* Retry, Edit and a Copy of your own words — claude.ai reveals these on
    hover too. Kept out from under the cursor via :focus-within as well, so
@@ -242,30 +276,30 @@
 .aic-mine:hover .aic-mineacts, .aic-mineacts:focus-within{opacity:1}
 .aic-mini{
   border:1px solid var(--aic-line); background:var(--aic-panel); color:var(--aic-ink-soft);
-  border-radius:6px; padding:2px 8px; font-size:11px; font-weight:600; cursor:pointer;
+  border-radius:var(--aic-radius-xxs); padding:2px 8px; font-size:var(--aic-fs-xs); font-weight:var(--aic-fw-semibold); cursor:pointer;
 }
 .aic-mini:hover{color:var(--aic-ink); border-color:var(--aic-ink-faint)}
-.aic-reply{font-size:13.5px; line-height:1.65; color:var(--aic-ink)}
+.aic-reply{font-size:var(--aic-fs-md); line-height:var(--aic-lh-loose); color:var(--aic-ink)}
 .aic-reply p{margin:0 0 10px}
 .aic-reply p:last-child{margin-bottom:0}
-.aic-reply p.aic-h{font-weight:640}
+.aic-reply p.aic-h{font-weight:var(--aic-fw-semibold)}
 .aic-reply ul{margin:0 0 10px; padding-left:18px}
 .aic-reply li{margin:3px 0}
 .aic-reply pre{
   margin:0 0 10px; padding:9px 11px; background:var(--aic-bg); border:1px solid var(--aic-line);
-  border-radius:8px; overflow-x:auto; font-size:12px;
+  border-radius:var(--aic-radius-xs); overflow-x:auto; font-size:var(--aic-fs-sm);
 }
 .aic-acts{margin-top:10px}
 .aic-copy{
   border:1px solid var(--aic-line); background:var(--aic-panel); color:var(--aic-ink-soft);
-  border-radius:6px; padding:3px 9px; font-size:11.5px; font-weight:600; cursor:pointer;
+  border-radius:var(--aic-radius-xxs); padding:3px 9px; font-size:var(--aic-fs-sm); font-weight:var(--aic-fw-semibold); cursor:pointer;
 }
 .aic-copy:hover{color:var(--aic-ink); border-color:var(--aic-ink-faint)}
 .aic-copy.aic-done{color:var(--aic-accent); border-color:var(--aic-accent)}
 .aic-copy.aic-warn{color:var(--aic-red); border-color:var(--aic-red)}
-.aic-err{margin:8px 0 0; font-size:12.5px; color:var(--aic-red)}
+.aic-err{margin:8px 0 0; font-size:var(--aic-fs-sm); color:var(--aic-red)}
 .aic-err em{
-  display:block; margin-top:4px; font-style:normal; font-size:11.5px;
+  display:block; margin-top:4px; font-style:normal; font-size:var(--aic-fs-sm);
   color:var(--aic-ink-faint); white-space:pre-wrap;
 }
 
@@ -273,7 +307,7 @@
 .aic-trace{margin:0 0 12px}
 .aic-tracehead{
   display:flex; align-items:center; gap:6px; padding:2px 0;
-  background:none; border:0; color:var(--aic-ink-faint); font-size:12px; font-weight:500; cursor:pointer;
+  background:none; border:0; color:var(--aic-ink-faint); font-size:var(--aic-fs-sm); font-weight:var(--aic-fw-medium); cursor:pointer;
 }
 .aic-tracehead:hover{color:var(--aic-ink-soft)}
 .aic-twist{display:inline-block; width:10px; color:var(--aic-ink-faint)}
@@ -283,7 +317,7 @@
 }
 .aic-timeline li{
   position:relative; margin:0; padding:3px 0 3px 14px;
-  font-size:12px; color:var(--aic-ink-soft);
+  font-size:var(--aic-fs-sm); color:var(--aic-ink-soft);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .aic-tick{
@@ -304,7 +338,7 @@
 .aic-pill{
   display:inline-flex; align-items:center; gap:5px;
   border:1px solid var(--aic-line); background:var(--aic-chip); color:var(--aic-ink-soft);
-  border-radius:999px; padding:3px 10px 3px 8px; font-size:11.5px; font-weight:600;
+  border-radius:var(--aic-radius-full); padding:3px 10px 3px 8px; font-size:var(--aic-fs-sm); font-weight:var(--aic-fw-semibold);
 }
 .aic-pill::before{content:''; width:5px; height:5px; border-radius:50%; background:var(--aic-ink-faint)}
 
@@ -316,8 +350,8 @@
   padding:12px var(--aic-pad); border-bottom:1px solid var(--aic-line-soft);
   background:var(--aic-bg);
 }
-.aic-permission-title{font-size:13px; font-weight:640; color:var(--aic-ink)}
-.aic-permission-detail{margin:4px 0 0; font-size:12.5px; color:var(--aic-ink-soft); line-height:1.5}
+.aic-permission-title{font-size:var(--aic-fs-md); font-weight:var(--aic-fw-semibold); color:var(--aic-ink)}
+.aic-permission-detail{margin:4px 0 0; font-size:var(--aic-fs-sm); color:var(--aic-ink-soft); line-height:var(--aic-lh-relaxed)}
 .aic-permission-buttons{display:flex; gap:8px; margin-top:10px}
 .aic-permission-buttons .aic-btn{padding:6px 14px}
 
@@ -326,7 +360,7 @@
 .aic-star.aic-glyph{
   width:auto; height:auto; background:none; animation:none;
   display:flex; align-items:center; justify-content:center;
-  font-size:13px; line-height:1; color:var(--aic-accent);
+  font-size:var(--aic-fs-md); line-height:1; color:var(--aic-accent);
 }
 
 /* ---- windowed mode (opts.windowed) ---- */

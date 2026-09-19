@@ -345,7 +345,9 @@ gap is closed for a live run.
 `chat.css` ships vanilla — the neutral palette `to-dos` happens to use — and
 every value a host is likely to want its own version of is a `--aic-*`
 custom property on `:root`, so restyling it is an override, never a fork.
-Two groups:
+Four groups. Every default also reads a `--tenon-*` name first, so a host
+that has Tenon loaded gets the design system's colour, type, radius, shadow
+and spacing with no override at all:
 
 ```css
 :root {
@@ -360,10 +362,22 @@ Two groups:
   --aic-radius: 20px;      /* the modal itself */
   --aic-radius-sm: 8px;    /* input, rows, chips */
   --aic-radius-xs: 6px;    /* buttons, icons */
+  --aic-radius-xxs: 4px;   /* the small buttons */
+  --aic-radius-full: 999px;/* pills */
   --aic-modal-w: min(640px, calc(100vw - 32px));
   --aic-modal-h: min(80vh, 800px);
   --aic-gap: 10px;
   --aic-pad: 16px;
+
+  /* type scale and weights */
+  --aic-fs-xs: 10px; --aic-fs-sm: 12px; --aic-fs-md: 14px; --aic-fs-lg: 16px;
+  --aic-fw-medium: 500; --aic-fw-semibold: 600;
+  --aic-lh-normal: 1.4; --aic-lh-relaxed: 1.5; --aic-lh-loose: 1.65;
+
+  /* depth */
+  --aic-scrim: rgba(0,0,0,.5);
+  --aic-shadow-modal: 0 20px 48px rgba(0,0,0,.3);
+  --aic-shadow-pop: 0 6px 18px rgba(0,0,0,.2);
 }
 ```
 
