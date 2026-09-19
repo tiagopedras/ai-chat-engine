@@ -38,6 +38,22 @@ needs a decision, a new tag, or a new piece of the app before it can be built.
 
 ## Big
 
+- **The chat window draws its own dialog, buttons, composer, pills and permission
+  banner, and Tenon now has components for every one of them.** `modalHTML()` at
+  `interface/chat.js:248` writes the whole window as one HTML string, and
+  `interface/chat.css` styles it with its own `.aic-scrim` and `.aic-box` (the
+  Modal), `.aic-btn` (Button), `.aic-input` (Textarea), `.aic-star` (Spinner),
+  `.aic-pill` (Pill) and `.aic-permission` (Alert). Tenon's copies came from
+  these, so the two now describe the same things twice and a change to one does
+  not reach the other. Using the real ones is harder than it sounds, because
+  `chat.js` is plain JavaScript that a host drops in without a build step, and
+  the components are React. Either the package ships a second, vanilla build of
+  them that `chat.js` renders into, or the window becomes a React component the
+  hosts mount. Both cost the property `chat.css` is written around: it needs no
+  stylesheet loaded first, and it does not care what its host uses. The window's
+  own `windowed` mode (`applyRect()`, the eight grips, drag by the head) has no
+  equivalent in Tenon's Modal yet and would have to be added there first.
+
 - **`cards.js` has no tests of its own.** It went in on 4 Sep 2026 with the
   layout arithmetic lifted out of ai_canvas, and it is covered only indirectly:
   ai_canvas's suite exercises it through a real canvas, and to-dos'
