@@ -13,6 +13,18 @@ needs a decision, a new tag, or a new piece of the app before it can be built.
 
 ## Small
 
+- **Opening an existing session leaves the transcript scrolled to the top.**
+  The only place `render()` moves the scroll is `interface/chat.js:1196`, and
+  it is guarded by `run && run.running`, so a conversation read back off disk
+  paints its whole history and sits at message one — the latest reply is
+  several screens down. `loadTranscript()` at `interface/chat.js:996` ends with
+  a plain `render()` and knows nothing about where the box should be. Either
+  that final render pins `dom.body.scrollTop = dom.body.scrollHeight`, or
+  `openInternal()` sets a one-shot flag the next `render()` consumes, which
+  also covers the empty-transcript and error paths without a second rule.
+  `updateScrollPill()` runs straight after either way, so the "New messages"
+  pill stays correct.
+
 - **A URL in a chat message renders as plain text.** `mdInline()` at
   `interface/chat.js:87` handles code spans, bold and italics and nothing else,
   so a reply carrying `http://localhost:8765/#!task=vu2t82` can only be read and
