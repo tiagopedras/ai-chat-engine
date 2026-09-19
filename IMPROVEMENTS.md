@@ -13,6 +13,17 @@ needs a decision, a new tag, or a new piece of the app before it can be built.
 
 ## Small
 
+- **A URL in a chat message renders as plain text.** `mdInline()` at
+  `interface/chat.js:87` handles code spans, bold and italics and nothing else,
+  so a reply carrying `http://localhost:8765/#!task=vu2t82` can only be read and
+  copied by hand. A pass after the code-span replace would turn bare
+  `http(s)://` URLs and Markdown `[text](url)` into anchors, skipping anything
+  already inside a `<code>` the line before it produced. A link on the page's
+  own address should open in the same tab, with no `target="_blank"`, so the app
+  hosting the chat window gets to handle it — a board link is the case that
+  matters, and the host's own hashchange listener is what should see it. Every
+  other link opens in a new tab with `rel="noopener"`.
+
 ## Big
 
 - **`cards.js` has no tests of its own.** It went in on 4 Sep 2026 with the

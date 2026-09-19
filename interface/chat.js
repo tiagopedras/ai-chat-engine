@@ -80,12 +80,31 @@
     });
   }
 
+  /* A URL written in a reply becomes a link. It runs before the code-span
+     replace rather than after it, so the backticks are still in the string to
+     split on and a URL quoted as code stays text. Trailing sentence
+     punctuation is left out of the href, since a full stop after a link is
+     almost never part of it.
+
+     The host decides what a link does — the board watches for one pointing at
+     its own page and closes the window over the card it opens. */
+  function linkify(s) {
+    return s.split(/(`[^`]+`)/).map(function (part, i) {
+      if (i % 2) return part;
+      return part.replace(/https?:\/\/[^\s<>"')\]]+/g, function (u) {
+        var tail = '';
+        while (/[.,;:!?]$/.test(u)) { tail = u.slice(-1) + tail; u = u.slice(0, -1); }
+        return '<a href="' + u + '" class="aic-link">' + u + '</a>' + tail;
+      });
+    }).join('');
+  }
+
   /* Code spans first, so a `**bold**` marker sitting inside backticks is
      never mistaken for a real one — same ordering ai_canvas's Markdown.tsx
      uses, kept deliberately narrow: show what falls outside this subset
      exactly as written rather than guess at it. */
   function mdInline(s) {
-    return esc(s)
+    return linkify(esc(s))
       .replace(/`([^`]+)`/g, '<code>$1</code>')
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/__([^_]+)__/g, '<strong>$1</strong>')
