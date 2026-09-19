@@ -360,7 +360,7 @@ and spacing with no override at all:
   /* shape and type */
   --aic-font: ui-sans-serif, system-ui, sans-serif;
   --aic-radius: 20px;      /* the modal itself */
-  --aic-radius-sm: 8px;    /* input, rows, chips */
+  --aic-radius-sm: 8px;    /* input, rows, bubble */
   --aic-radius-xs: 6px;    /* buttons, icons */
   --aic-radius-xxs: 4px;   /* the small buttons */
   --aic-radius-full: 999px;/* pills */

@@ -23,9 +23,10 @@
  * snapped to the nearest step of its scale rather than carried over, because
  * a widget that draws its text a half pixel differently depending on whether
  * a stylesheet is loaded is worse than one that is the same in both. What
- * moved: sizes 9, 11 and 11.5 to 10 or 12, 12.5 to 12, 13 and 13.5 to 14, 15
- * to 16; weights 560 and 640 to 600; the message bubble's corner from 14 to
- * 10; line heights 1.45 and 1.55 to 1.5.
+ * moved: sizes 9 to 10, 11, 11.5 and 12.5 to 12, 13 and 13.5 to 14, 15
+ * to 16 (ties round up); weights 560 and 640 to 600; input and row corners
+ * from 10 to 12 and the message bubble's from 14 to 12; line heights 1.45
+ * and 1.55 to 1.5.
  *
  * Modelled on the claude.ai composer and thread — ../claude-chat-interface-
  * findings.md is the spec this follows, not background reading, and stays
@@ -62,7 +63,7 @@
   --aic-font: var(--tenon-text-body-family,
     -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
   --aic-radius:      var(--tenon-radius-xl, 16px);       /* the modal itself */
-  --aic-radius-sm:   var(--tenon-radius-lg, 10px);       /* input, rows, bubble */
+  --aic-radius-sm:   var(--tenon-radius-lg, 12px);       /* input, rows, bubble */
   --aic-radius-xs:   var(--tenon-radius-md, 8px);        /* buttons, icons, code */
   --aic-radius-xxs:  var(--tenon-radius-default, 6px);   /* the small buttons */
   --aic-radius-full: var(--tenon-radius-full, 999px);    /* pills */
@@ -276,7 +277,7 @@
 .aic-mine:hover .aic-mineacts, .aic-mineacts:focus-within{opacity:1}
 .aic-mini{
   border:1px solid var(--aic-line); background:var(--aic-panel); color:var(--aic-ink-soft);
-  border-radius:var(--aic-radius-xxs); padding:2px 8px; font-size:var(--aic-fs-xs); font-weight:var(--aic-fw-semibold); cursor:pointer;
+  border-radius:var(--aic-radius-xxs); padding:2px 8px; font-size:var(--aic-fs-sm); font-weight:var(--aic-fw-semibold); cursor:pointer;
 }
 .aic-mini:hover{color:var(--aic-ink); border-color:var(--aic-ink-faint)}
 .aic-reply{font-size:var(--aic-fs-md); line-height:var(--aic-lh-loose); color:var(--aic-ink)}
