@@ -950,10 +950,12 @@
 
     function isOpen() { return !!current; }
 
-    function openInternal(ownerId, ownerKey, sessionId, seed) {
+    function openInternal(ownerId, ownerKey, sessionId, seed, opts) {
       mount();
       current = { owner: ownerId, key: ownerKey, session: sessionId || '', seed: seed || '',
                   mode: defaultMode,
+                  // See send(): wraps the first message only, then clears.
+                  preface: (opts && typeof opts.preface === 'function') ? opts.preface : null,
                   turns: null, loading: false, run: runFor(sessionId) };
       dom.wrap.classList.add('aic-on');
       dom.wrap.setAttribute('aria-hidden', 'false');
@@ -969,7 +971,10 @@
     /* A brand new conversation, or one seeded with a prompt but not sent —
        seeded runs still have a [placeholder] in them sometimes, and firing on
        open would send it before anyone had a chance to fill it in. */
-    function openNew(ownerId, ownerKey, seed) { openInternal(ownerId, ownerKey, '', seed || ''); }
+    /* `opts.preface(ask)` returns what actually goes to Claude on the first
+       message, given what he typed. The box still opens on `seed` (usually
+       nothing) and the transcript still shows his own words. */
+    function openNew(ownerId, ownerKey, seed, opts) { openInternal(ownerId, ownerKey, '', seed || '', opts); }
     function openSession(ownerId, ownerKey, sessionId) { openInternal(ownerId, ownerKey, sessionId, ''); }
 
     function closeChat() {
@@ -1425,6 +1430,12 @@
         turns: (rspec.turns || []).slice(), started: Date.now(), ms: 0, cost: 0,
         seen: {}, ctrl: new AbortController()
       };
+      /* `ask` is what he wrote and what the transcript shows; `prompt` is what
+         actually goes to Claude. They are the same thing for every send but
+         one — the first message of a conversation a host opened with a
+         preface, where the host puts the document being discussed in front of
+         his sentence. Keeping them apart is what lets the window show his
+         sentence rather than the document he never typed. */
       const turn = { ask: rspec.ask, reply: '', tools: [], flow: [], error: '', detail: '', cost: 0 };
       run.turns.push(turn);
       if (current && current.owner === run.owner) current.run = run;
@@ -1433,7 +1444,7 @@
 
       try {
         for await (const line of transport.run({
-          prompt: rspec.ask, mode: run.mode, session: run.session,
+          prompt: rspec.prompt || rspec.ask, mode: run.mode, session: run.session,
           owner: run.key, title: run.title
         }, run.ctrl.signal)) {
           handleRunEvent(run, turn, line);
@@ -1457,9 +1468,17 @@
       if (run && run.running) return;
       box.value = '';
       autoGrow(box);
-      onSend({ owner: c.owner, key: c.key, session: c.session || '', ask, mode: c.mode || 'ask' });
+      /* The preface, if the host gave one: it wraps the first message of a new
+         conversation and nothing after it, so a host can open a chat about a
+         document without pasting the document into the box for him to scroll
+         past. Consumed on use — the second message is his alone, because by
+         then Claude has the document. */
+      const prompt = (c.preface && !c.session) ? c.preface(ask) : ask;
+      if (c.preface) c.preface = null;
+      onSend({ owner: c.owner, key: c.key, session: c.session || '', ask, prompt,
+               mode: c.mode || 'ask' });
       startRun({
-        owner: c.owner, key: c.key, session: c.session, ask,
+        owner: c.owner, key: c.key, session: c.session, ask, prompt,
         // A brand new chat takes its name from the first thing asked in it. A
         // resumed one keeps the name it already has.
         title: (sessionsFor(c.key).find(s => s.id === c.session) || {}).title || chatTitle(ask),
