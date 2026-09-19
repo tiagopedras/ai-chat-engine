@@ -2,12 +2,21 @@
  *
  * Self-contained: every colour, and now every radius, gap and the modal's
  * own font and size, is one of this file's own --aic-* tokens, so the
- * widget looks right in any host with no coordination required. The
- * defaults below are the ones to-dos already used; a host that wants to
- * match its own palette or shape instead just overrides these custom
- * properties on `:root` or on whatever element it mounts under — no build
- * step, nothing to fork. See the two token blocks under `:root` below:
- * colour first, then shape and type.
+ * widget looks right in any host with no coordination required. A host that
+ * wants to match its own palette or shape instead just overrides these
+ * custom properties on `:root` or on whatever element it mounts under — no
+ * build step, nothing to fork. See the two token blocks under `:root`
+ * below: colour first, then shape and type.
+ *
+ * Each default reads Tenon's token first and falls back to the literal that
+ * was here before. A host with Tenon loaded — the to-dos board, ai_canvas —
+ * gets a modal in the design system's colours for free, and a host without
+ * it gets exactly what it got before, because `var(--x, fallback)` is
+ * resolved by the browser and needs nothing installed. That is the whole
+ * reason it is written this way rather than as a dependency: this package
+ * is dropped into hosts it does not control, and the one thing it must not
+ * do is require them to load a stylesheet first. Overriding still wins over
+ * both, so a host that wants its own blue says so and is obeyed.
  *
  * Modelled on the claude.ai composer and thread — ../claude-chat-interface-
  * findings.md is the spec this follows, not background reading, and stays
@@ -24,31 +33,48 @@
  */
 
 :root {
-  --aic-bg: #f6f7f9; --aic-panel: #ffffff; --aic-ink: #16181d;
-  --aic-ink-soft: #5d636e; --aic-ink-faint: #8b919c;
-  --aic-line: #e3e6ea; --aic-line-soft: #eef0f3;
-  --aic-accent: #2f6feb; --aic-accent-ink: #fff;
-  --aic-red: #c8322f; --aic-amber: #9a6100; --aic-chip: #f0f2f5;
+  --aic-bg:        var(--tenon-background-default, #f6f7f9);
+  --aic-panel:     var(--tenon-background-raised,  #ffffff);
+  --aic-ink:       var(--tenon-text-default,       #16181d);
+  --aic-ink-soft:  var(--tenon-text-subtle,        #5d636e);
+  --aic-ink-faint: var(--tenon-text-faint,         #8b919c);
+  --aic-line:      var(--tenon-stroke-default,     #e3e6ea);
+  --aic-line-soft: var(--tenon-stroke-subtle,      #eef0f3);
+  --aic-accent:    var(--tenon-background-accent,  #2f6feb);
+  --aic-accent-ink:var(--tenon-text-on-accent,     #fff);
+  --aic-red:       var(--tenon-text-error,         #c8322f);
+  --aic-amber:     var(--tenon-text-warning,       #9a6100);
+  --aic-chip:      var(--tenon-background-neutral, #f0f2f5);
 
   /* Shape and type — split out from colour so a host can restyle the frame
      (a tighter modal, its own font, square corners) without fighting fixed
      numbers anywhere below. Colour tokens above are the ones worth
      overriding most often; these are the rest. */
   --aic-font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --aic-radius: 16px;       /* the modal itself */
-  --aic-radius-sm: 10px;    /* input, rows, chips */
-  --aic-radius-xs: 8px;     /* buttons, icons */
+  --aic-radius:    var(--tenon-radius-xl, 16px);  /* the modal itself */
+  --aic-radius-sm: var(--tenon-radius-lg, 10px);  /* input, rows, chips */
+  --aic-radius-xs: var(--tenon-radius-md, 8px);   /* buttons, icons */
   --aic-modal-w: min(760px, calc(100vw - 48px));
   --aic-modal-h: min(720px, calc(100vh - 64px));
   --aic-gap: 8px;           /* header and footer row gaps */
   --aic-pad: 14px;          /* header and footer side padding */
 }
+/* Dark, for a host without Tenon. With Tenon the block above already follows
+   the theme, because every --tenon- name it reads is redefined under this
+   same query — so these fallbacks are only ever reached by a host that has
+   not loaded it, which is exactly when they are needed. */
 @media (prefers-color-scheme: dark) {
   :root {
-    --aic-bg: #14161a; --aic-panel: #1c1f25; --aic-ink: #e9ebee;
-    --aic-ink-soft: #a5abb6; --aic-ink-faint: #7b818c;
-    --aic-line: #2b3038; --aic-line-soft: #23272e; --aic-chip: #262b33;
-    --aic-red: #ff8a85; --aic-amber: #f0b355;
+    --aic-bg:        var(--tenon-background-default, #14161a);
+    --aic-panel:     var(--tenon-background-raised,  #1c1f25);
+    --aic-ink:       var(--tenon-text-default,       #e9ebee);
+    --aic-ink-soft:  var(--tenon-text-subtle,        #a5abb6);
+    --aic-ink-faint: var(--tenon-text-faint,         #7b818c);
+    --aic-line:      var(--tenon-stroke-default,     #2b3038);
+    --aic-line-soft: var(--tenon-stroke-subtle,      #23272e);
+    --aic-chip:      var(--tenon-background-neutral, #262b33);
+    --aic-red:       var(--tenon-text-error,         #ff8a85);
+    --aic-amber:     var(--tenon-text-warning,       #f0b355);
   }
 }
 
