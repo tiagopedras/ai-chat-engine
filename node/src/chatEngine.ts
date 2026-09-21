@@ -7,7 +7,7 @@ import type { ChatPart, ChatRunPayload, ChatSessionMeta, ChatStatus, ChatStore, 
 import { unwrapSlashCommand } from './slashCommand.js'
 
 /**
- * A host's backend for `interface/chat.js`'s modal — the five-call contract
+ * A host's backend for the chat window — the five-call contract
  * (plus the optional sixth, `answerPermission`) `interface/README.md`
  * documents, answered here by calling into the Agent SDK directly rather
  * than spawning a second `claude` process next to whatever `SessionPool`
@@ -24,7 +24,7 @@ import { unwrapSlashCommand } from './slashCommand.js'
  * this package's — so a host that wants a brand-new chat's cwd resolved
  * from something like a project passes `resolveOwnerCwd` in; a resumed
  * chat never needed it; and `pairTurns` now also builds `parts`, the same
- * addition `interface/chat.js`'s `loadTranscript` and `engine.py`'s
+ * addition the chat window's `loadTranscript` and `engine.py`'s
  * `transcript_read` both read.
  */
 
@@ -231,7 +231,7 @@ function pairTurns(messages: SessionMessage[]): ChatTurn[] {
         if (block.type === 'text' && block.text) {
           turn.reply += (turn.reply ? '\n\n' : '') + block.text
           // `parts` is `reply`/`tools` again, but in the order Claude
-          // actually produced them — see interface/README.md's
+          // actually produced them — see README.md's
           // transcript() contract.
           const part: ChatPart = { type: 'text', text: block.text }
           ;(turn.parts ??= []).push(part)

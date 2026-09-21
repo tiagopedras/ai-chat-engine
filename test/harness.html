@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ai_chat_engine harness</title>
+<!-- Loads exactly what a page with no build step loads: one stylesheet and one script. -->
+<link rel="stylesheet" href="/dist/chat.standalone.css">
+<style>body{margin:0;background:var(--tenon-background-default);color:var(--tenon-text-default);font-family:var(--tenon-text-body-family)}#card{position:absolute;left:60px;top:60px;width:200px;height:90px;background:#ccc}</style>
+</head>
+<body>
+<div id="card">a card</div>
+<script src="/dist/ai-chat.js"></script>
+<script>
+/* A stand-in for the helper behind the window. It records what the window asks
+   for and answers from a script, so the test can check both directions. */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+window.__payloads = [];
+window.__answers = [];
+window.__forgot = [];
+window.__chats = { k1: [{ id: 's-old', title: 'An earlier chat', updated: new Date().toISOString(), cwd: '/Users/x/Code', mode: 'ask' }] };
+
+const asst = (content, id = 'm1') => ({ type: 'assistant', message: { id, content } });
+function script(payload) {
+  const p = payload.prompt;
+  const lines = [{ type: 'board_start', cwd: '/Users/x/Code', home: '/Users/x/Code' }, { type: 'system', subtype: 'init', session_id: 's-new' }];
+  if (/permission/.test(p)) lines.push({ type: 'board_permission', requestId: 'r1', toolName: 'Bash', title: 'Run rm -rf build?', description: 'Claude wants to clean the build folder', canAlwaysAllow: true }, { wait: 500 });
+  if (/slow/.test(p)) lines.push({ wait: 3000 });
+  lines.push(asst([{ type: 'thinking' }, { type: 'tool_use', name: 'Read', input: { file_path: '/Users/x/Code/notes.md' } }]));
+  lines.push(asst([{ type: 'tool_use', name: 'Grep', input: { pattern: 'probation' } }], 'm2'));
+  lines.push(asst([{ type: 'text', text: 'Here is **the answer** with `code`.\n\n- one\n- two' }], 'm3'));
+  lines.push({ type: 'result', result: 'Here is **the answer** with `code`.\n\n- one\n- two', session_id: 's-new', total_cost_usd: 0.004, duration_ms: 1500 });
+  return lines;
+}
+window.makeTransport = () => ({
+  status: async () => ({ available: true, home: '/Users/x/Code', work: true }),
+  sessions: async () => ({ chats: window.__chats }),
+  transcript: async () => ({ turns: [{ ask: 'earlier question', reply: 'an **old** answer', tools: [{ name: 'Read', input: { file_path: '/a/b.md' } }] }] }),
+  async *run(payload, signal) {
+    window.__payloads.push(payload);
+    for (const l of script(payload)) {
+      if (l.wait) { const end = Date.now() + l.wait; while (Date.now() < end) { if (signal.aborted) throw new Error('Stopped.'); await sleep(50); } continue; }
+      await sleep(60);
+      if (signal.aborted) throw new Error('Stopped.');
+      yield JSON.stringify(l);
+    }
+  },
+  forget: async (k, s) => { window.__forgot.push([k, s]); },
+  answerPermission: async (id, d) => { window.__answers.push([id, d]); },
+});
+window.__sent = [];
+window.__changes = 0;
+</script>
+</body>
+</html>

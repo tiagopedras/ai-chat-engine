@@ -140,13 +140,13 @@ export interface ChatSessionMeta {
   cwd: string
 }
 
-/** One block of a chat turn, in the order it happened — what `chat.js`'s
-    `parts` field (see interface/README.md) is built from. */
+/** One block of a chat turn, in the order it happened — what the chat window's
+    `parts` field (see README.md) is built from. */
 export type ChatPart =
   | { type: 'text'; text: string }
   | { type: 'tool'; name: string; input: Record<string, unknown> }
 
-/** One turn of a replayed chat transcript, as `interface/chat.js`'s modal
+/** One turn of a replayed chat transcript, as the chat window
     expects it. `parts` is optional and additive — see chatEngine.ts. */
 export interface ChatTurn {
   ask: string
@@ -163,7 +163,7 @@ export interface ChatStatus {
   model: string | null
 }
 
-/** What `interface/chat.js`'s `run` call sends — see interface/README.md. */
+/** What the chat window's `run` call sends — see README.md. */
 export interface ChatRunPayload {
   prompt: string
   mode: 'ask' | 'work'

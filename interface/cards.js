@@ -1,7 +1,7 @@
 /**
  * cards.js — where a card sits, and which group it belongs to.
  *
- * The companion to chat.js. That file draws one conversation; this one holds
+ * The companion to the chat window. That draws one conversation; this one holds
  * the arithmetic a host needs to lay several of them out and draw a box round
  * the ones that belong together.
  *
@@ -21,7 +21,7 @@
  *   Geometry  {x, y, width, height, z}   where one card sits
  *   Rect      {x, y, width, height}      the box around a group of them
  *
- * Usable two ways, the same as chat.js. As a module:
+ * Usable two ways, the same as the chat bundle. As a module:
  *
  *   import { arrangeRow, nextZ } from '@tiagopedras/ai-chat-engine/cards.js'
  *

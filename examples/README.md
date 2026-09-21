@@ -14,7 +14,8 @@ python3 examples/notes_demo.py
 
 Opens `http://127.0.0.1:8766/notes.html`. It reads `engine.py` and
 `http_glue.py` straight from the parent folder, the same way `to-dos` does,
-and serves `interface/chat.js` + `chat.css` live rather than copying them in.
+and serves `dist/ai-chat.js` + `chat.standalone.css` live rather than copying them in.
+Run `npm run build` first if `dist/` is not there.
 
 Two things it does differently from `to-dos`, both deliberately, to prove
 they're actually configurable and not hardcoded assumptions baked into the

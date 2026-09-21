@@ -10,14 +10,18 @@ Node engine.
 One piece is required, the rest is optional and a host takes only what it
 needs:
 
-- **`interface/chat.js` + `interface/chat.css`** — required. The modal
-  itself, plus the "chats on this thing" list a host embeds in its own page.
-  Vanilla JS, one global (`window.AIChat`), no build step, no dependency.
-  Import this file itself, or point a `<script src>` at it — never copy its
-  contents in, or a fix made here stops reaching whichever host has the
-  copy.
+- **`src/` (built to `dist/`)**: required. The chat window itself, written in
+  React from Tenon's components: a `Modal` (or a `Window` the host places and
+  moves), `Button`, `Textarea`, `Spinner`, `Pill`, `Alert`, `Markdown`,
+  `Disclosure` and `EditableText`. It ships two ways. `dist/ai-chat.js` is one
+  classic script that carries React and Tenon inside it and sets
+  `window.AIChat`, for a page with no build step, which is how every host so
+  far loads it. `dist/react/index.js` is the same thing as an ES module with
+  React and Tenon left out, for an app that has both and its own bundler. Load
+  the built file or import the package. Never copy its contents in, or a fix
+  made here stops reaching whichever host has the copy.
 - **`interface/cards.js`** — optional, and the companion to the file above.
-  `chat.js` draws one conversation; this draws none, and holds instead the
+  The chat window draws one conversation; this draws none, and holds instead the
   arithmetic a host needs to lay several of them out on a canvas: where a
   card sits, which group it belongs to, the box around a group and how that
   box refuses to be smaller than what is in it. Pure functions over plain
@@ -41,49 +45,70 @@ needs:
   Claude Agent SDK, for a Node host that wants a live, stateful card per
   session — permission prompts included — rather than one CLI process per
   prompt. See "The Node engine" below. Only a Node host needs this at all,
-  and only one that wants more than `chat.js`'s modal by itself gives it.
+  and only one that wants more than the chat window by itself gives it.
 
-`chat.js` doesn't know or care which of those a host picked. It makes
-exactly five calls — `status`, `sessions`, `transcript`, `run`, `forget` —
-and by default sends each one over `fetch` to the HTTP contract below, which
-is what `engine.py` + `http_glue.py` answer. A host with no HTTP between its
-page and Claude at all — an Electron renderer talking over IPC, say — skips
-both Python files, passes `transport` to `AIChat.create()` instead, and
-implements those same five calls however it actually reaches Claude. See the
-`opts.transport` doc comment above `makeDefaultTransport` in `chat.js` for
-the exact shape each method must return. Only the methods a transport
-supplies override the fetch-based default, so overriding just `run` (the one
-that actually needs a live process behind it) and leaving `status`,
+The window doesn't know or care which of those a host picked. It makes
+exactly five calls (`status`, `sessions`, `transcript`, `run`, `forget`) and
+by default sends each one over `fetch` to the HTTP contract below, which is
+what `engine.py` + `http_glue.py` answer. A host with no HTTP between its page
+and Claude at all, an Electron renderer talking over IPC say, skips both
+Python files, passes `transport` to `create()` instead, and implements those
+same five calls however it actually reaches Claude. `Transport` in
+`src/types.ts` is the exact shape each method must return. Only the methods a
+transport supplies override the fetch-based default, so overriding just `run`
+(the one that actually needs a live process behind it) and leaving `status`,
 `sessions`, `transcript` and `forget` on plain HTTP is a valid middle ground
 too.
 
 ## Installing it as a package
 
-This repo is also `@tiagopedras/ai-chat-engine` on GitHub Packages — the
-`interface/` files stay exactly the vanilla JS/CSS they always were, this
-just gives a host a version to pin instead of a file to copy.
+This repo is also `@tiagopedras/ai-chat-engine`. `dist/` is committed, because
+the board and `ai_canvas` read the built files straight off disk and neither
+runs a build for them. After changing anything under `src/`, run `npm run
+build`, which rebuilds the Node engine, the component, the one-file bundle, the
+types and the standalone stylesheet in that order.
 
-```
-# in the installing repo's .npmrc
-@tiagopedras:registry=https://npm.pkg.github.com
-```
-
-```
-npm install @tiagopedras/ai-chat-engine
-```
+A page with no build step loads two files. If it has Tenon already, as the
+board does, it takes `chat.css` and lets Tenon's own two stylesheets come
+first. If it does not, `chat.standalone.css` is Tenon's tokens, Tenon's
+components and the window's own in one file, so the page needs to know nothing
+about any of them.
 
 ```html
-<link rel="stylesheet" href="node_modules/@tiagopedras/ai-chat-engine/interface/chat.css">
-<script src="node_modules/@tiagopedras/ai-chat-engine/interface/chat.js"></script>
+<link rel="stylesheet" href="node_modules/@tiagopedras/ai-chat-engine/dist/chat.standalone.css">
+<script src="node_modules/@tiagopedras/ai-chat-engine/dist/ai-chat.js"></script>
 ```
 
-or, from a bundler, `import '@tiagopedras/ai-chat-engine/chat.js'` (sets
-`window.AIChat`) and `import '@tiagopedras/ai-chat-engine/chat.css'`.
+A React app installs the package and Tenon, and mounts the window itself:
+
+```jsx
+import '@tiagopedras/tenon/tenon.css';
+import '@tiagopedras/tenon/tenon-react.css';
+import '@tiagopedras/ai-chat-engine/chat.css';
+import { ChatController, ChatWindow } from '@tiagopedras/ai-chat-engine';
+
+const controller = new ChatController({ endpoints: {...} });
+controller.loadStatus();
+// somewhere in the tree, once:
+<ChatWindow controller={controller} />
+// and to start a chat:
+controller.openNew(ownerId, ownerKey, 'optional seed text');
+```
+
+`useChat(controller)` returns the same view the window draws from, for a host
+that wants to build its own chrome around the state. `create()` is the
+imperative version of all of that, which is what the bundle exposes as
+`AIChat.create`.
+
 `engine.py` and `http_glue.py` are still copy-in reference code, not part of
-the npm package — see the wiring section below.
+the npm package. See the wiring section below.
+
+`npm test` builds nothing and drives the built window in headless Chrome
+against a fake helper: `test/chat.test.mjs`, with the fake in
+`test/harness.html`. It needs Chrome at the usual macOS path and a build.
 
 `claude-chat-interface-findings.md`, beside this README, is a teardown of
-claude.ai's own chat interface. The modal's design follows it: attribution by
+claude.ai's own chat interface. The window's design follows it: attribution by
 asymmetry rather than avatars, one slot that holds either the send button or
 the stop button but never both, a status line whose words are the progress
 rather than a spinner. Read it before changing how the modal looks or behaves.
@@ -155,7 +180,7 @@ route to answer it yet.
 
 ## The HTTP contract
 
-Whatever serves these routes, `interface/chat.js` expects exactly this
+Whatever serves these routes, the chat window expects exactly this
 shape. Route paths are configurable per instance (`AIChat.create({endpoints:
 {...}})` on the JS side, whatever the host's router does on the server
 side) — these are the defaults, and what `to-dos` uses them as.
@@ -211,7 +236,7 @@ if path == "/claude/forget":
     return self._json(400, err) if err else self._json(200, got)
 ```
 
-Serve `interface/chat.js` and `interface/chat.css` as static files under
+Serve `dist/ai-chat.js` and `dist/chat.css` (or `chat.standalone.css`) as static files under
 whatever prefix the host likes (`to-dos` uses `/ai-chat/...`, reading
 straight from this folder rather than copying it in).
 
@@ -220,7 +245,7 @@ straight from this folder rather than copying it in).
 Skip `engine.py` and `http_glue.py` entirely and answer the same five calls
 directly in JS. Nothing here changes because of *how* a transport method
 reaches Claude — an Electron preload bridge, a WebSocket, anything — only
-that it returns what's documented above `makeDefaultTransport` in `chat.js`.
+that it returns what `Transport` in `src/types.ts` documents.
 
 ```js
 const chat = AIChat.create({
@@ -247,25 +272,25 @@ rather than spawning a second `claude` process next to it.
 
 ```html
 <link rel="stylesheet" href="/ai-chat/chat.css">
-<script src="/ai-chat/chat.js"></script>
+<script src="/ai-chat/ai-chat.js"></script>
 <script>
   const chat = AIChat.create({
-    ownerLabel: id => lookUpSomeTitleFor(id),   // shown under the modal's title
+    ownerLabel: id => lookUpSomeTitleFor(id),   // shown under the window's title
     onSessionsChanged: () => { /* re-render whatever list you show */ },
-    // Fires the instant a message is sent — before the run starts, let alone
-    // replies — so a host can react to "this conversation just began"
-    // without waiting on a reply. `session` is empty on a brand new
-    // conversation's first message, set on every send after that.
+    // Fires the instant a message is sent, before the run starts, let alone
+    // replies, so a host can react to "this conversation just began" without
+    // waiting on a reply. `session` is empty on a brand new conversation's
+    // first message, set on every send after that.
     onSend: ({ owner, key, session, ask, mode }) => {
       // if (!session) startSomethingElseAlongsideThisChat(owner, ask)
     },
-    // desktopLink: false,   // drop the "Open in Claude" button — a host
-                              // that's already a Claude client itself, say
+    // desktopLink: false,   // drop the "Open in Claude" button, for a host
+                              // that is already a Claude client itself
   });
   chat.loadStatus();   // call once; no-ops quietly if there's no CLI behind the host
 
-  // Wherever you draw the thing that owns the conversations:
-  el.innerHTML += chat.renderSection({ ownerId: id, ownerKey: thing.chatKey, label: 'Chats' });
+  // Wherever you draw the thing that owns the conversations, read what it has:
+  chat.sessionsFor(thing.chatKey);   // [{id, title, updated, mode}], newest first
 
   // Starting one:
   const key = thing.chatKey || chat.newOwnerKey();
@@ -274,117 +299,90 @@ rather than spawning a second `claude` process next to it.
 </script>
 ```
 
-`chat.available()` is false — and `renderSection()` returns `''` — until
-`loadStatus()` has confirmed a CLI is actually behind the host. Everything
-degrades to "no button" rather than an error: no CLI on PATH, a host too old
-to know the routes, a static file server with nothing behind it at all.
+The list of chats on a thing is the host's to draw. It used to be
+`renderSection()`, a string of HTML the window built, and no host was still
+calling it by the time it went. `sessionsFor()`, `available()` and the
+`onSessionsChanged` callback are what a host needs to draw its own.
+
+`chat.available()` is false until `loadStatus()` has confirmed a CLI is
+actually behind the host. Everything degrades to "no button" rather than an
+error: no CLI on PATH, a host too old to know the routes, a static file server
+with nothing behind it at all.
 
 ## Several open at once, and windowed mode
 
-Every `AIChat.create()` call is a fully independent instance — its own DOM,
-its own state — so a host that wants several chats open simultaneously (one
-per card on a canvas, say) just calls `create()` once per window rather than
-sharing one. Nothing about the plain modal above changes for a host that
-never does this.
+Every `create()` call is a fully independent instance, with its own state and
+its own mount, so a host that wants several chats open simultaneously (one per
+card on a canvas, say) calls `create()` once per window rather than sharing
+one. An instance mounts on its first open rather than when it is created, so
+making one per card costs nothing for the cards never opened. `destroy()` takes
+one off the page for good. `closeChat()` only hides it.
 
-`opts.windowed: true` swaps the fixed, centred, scrim-backed modal for a
-window a host places and moves itself: draggable by its header, resizable
-from any edge or corner, and grown out of a card's own on-screen rectangle
-via a FLIP animation rather than appearing over it — the same technique
-`claude-chat-interface-findings.md`'s host apps use, so the thing you
-clicked and the thing you get read as the same object. What it does *not*
-do is decide where it sits: this module stays deliberately incurious about
-*why* a rect changed, so a multi-window grid, a "peek" mode, and one shared
-depth order across windows and whatever else is on the host's canvas all
-stay the host's own code, never this file's.
+`windowed: true` swaps the centred, scrim-backed `Modal` for a Tenon `Window`
+that a host places and moves itself: draggable by its head, resizable from any
+edge or corner, and grown out of a card's own on-screen rectangle rather than
+appearing over it, so the thing clicked and the thing that opens read as the
+same object. It does not decide where it sits. It stays incurious about why a
+rect changed, so a multi-window grid, a peek mode and one shared depth order
+across windows and everything else on the host's canvas all stay the host's
+own code. The gesture itself, the drag, the resize, the grow and the shrink,
+lives in Tenon's `Window`, so any other floating panel gets it too.
 
 ```js
 const win = AIChat.create({
   windowed: true,
-  scrim: false,           // several windows open at once want no per-window dimmer;
-                           // defaults to false when windowed, true otherwise
   onRectLive: rect => { /* every live change, mid-drag included */ },
-  onRectChange: rect => { /* a drag or resize just committed — save it */ },
+  onRectChange: rect => { /* a drag or resize just committed, so save it */ },
   onFocus: () => { /* bring this one to the front of your own z-order */ }
 });
 
 win.growFrom(cardEl.getBoundingClientRect());   // before the open call that follows
 win.openSession(ownerId, ownerKey, sessionId);
 
-win.setRect(savedRectOrGridCell);   // a rect this window did not choose — applied
-                                     // as-is, never clamped, and never while a local
-                                     // drag is in progress
+win.setRect(savedRectOrGridCell);   // a rect this window did not choose, applied
+                                     // as it is, never clamped, and never while a
+                                     // local drag is in progress
 win.setZIndex(920);
 win.setActive(isTopWindow);         // only the active instance's Escape closes it
+win.setPeeked(parked);              // dimmed, for a desk being cleared
+win.setHeader({ title, subtitle, runState });
 ```
 
-Two richer-transcript options pair naturally with windowed mode, since both
-are about a full work session rather than a short read-only answer, but
-either works standalone:
+`setHeader()` names the window in the host's words: a title, a caption line
+under it, and a `runState` stamped on the box as `data-state` for the host's
+stylesheet to pick up. Passing `onRename` makes the title editable in place and
+hands back what was typed.
 
-- `opts.inlineTools: true` — replaces the collapsed trace with the whole
-  turn, in the order it happened: text as markdown prose (the same styling
-  a plain reply gets), a row of pills wherever one or more tool calls fall
-  in that order. Chronological for a live run, since `handleRunEvent` builds
-  it as events actually arrive; a replayed transcript is chronological too
-  once its transport sends the `parts` field described under "The HTTP
-  contract" above, and falls back to an approximation (tools, then the
-  text) against one that doesn't.
-- `opts.thinkingGlyphs: true` — the CLI's own cycling asterisk
-  (`· ✢ ✳ ∗ ✻ ✽ ✻ ∗ ✳ ✢`) instead of the plain spinning ring, in the same
-  spot in the status line.
+Two options pair naturally with windowed mode, since both are about a full
+work session rather than a short read-only answer, but either works alone.
+`inlineTools: true` replaces the collapsed trace with the whole turn in the
+order it happened, text as markdown and a row of pills wherever tool calls
+fall. A replayed transcript is chronological too once its transport sends the
+`parts` field described under "The HTTP contract", and falls back to tools then
+text against one that does not. `thinkingGlyphs: true` swaps the turning ring
+for the CLI's own cycling asterisk, which is Tenon's `Spinner variant="glyph"`.
 
-What's still `SessionModal`-only and hasn't moved here: renaming a
-conversation by double-clicking its title. `inlineTools` covers what its
-five typed entry kinds actually render as (a bubble, markdown prose, a
-pill, red text) — the one open question was ordering, not styling, and that
-gap is closed for a live run.
+## Making it look like the host
 
-## Making it look like the host, not like `to-dos`
+There is no theme of its own to override any more. Every colour, size, radius
+and shadow in the window is one of Tenon's tokens, so a host restyles the
+window by restyling Tenon: a `--tenon-*` override on `:root` or on any element
+above the window moves the window with everything else on the page. `chat.css`
+holds only the arrangement around Tenon's components, and every value in it is
+a token too.
 
-`chat.css` ships vanilla — the neutral palette `to-dos` happens to use — and
-every value a host is likely to want its own version of is a `--aic-*`
-custom property on `:root`, so restyling it is an override, never a fork.
-Four groups. Every default also reads a `--tenon-*` name first, so a host
-that has Tenon loaded gets the design system's colour, type, radius, shadow
-and spacing with no override at all:
+The names that were `--aic-*` (`--aic-accent`, `--aic-radius`, `--aic-modal-w`
+and the rest) are gone. A host that overrode them sets the matching Tenon token
+instead: `--tenon-background-accent` for the accent, `--tenon-radius-xl` for
+the corner. The plain modal's width and height are `size="lg"` on Tenon's
+`Modal` and `.aic-modal { height }` in `chat.css`.
 
-```css
-:root {
-  /* colour */
-  --aic-bg: #fff; --aic-panel: #fff; --aic-ink: #111; --aic-ink-soft: #555;
-  --aic-ink-faint: #999; --aic-line: #ddd; --aic-line-soft: #eee;
-  --aic-accent: #7c3aed; --aic-accent-ink: #fff;
-  --aic-red: #c00; --aic-amber: #a60; --aic-chip: #f2f2f2;
-
-  /* shape and type */
-  --aic-font: ui-sans-serif, system-ui, sans-serif;
-  --aic-radius: 20px;      /* the modal itself */
-  --aic-radius-sm: 8px;    /* input, rows, bubble */
-  --aic-radius-xs: 6px;    /* buttons, icons */
-  --aic-radius-xxs: 4px;   /* the small buttons */
-  --aic-radius-full: 999px;/* pills */
-  --aic-modal-w: min(640px, calc(100vw - 32px));
-  --aic-modal-h: min(80vh, 800px);
-  --aic-gap: 10px;
-  --aic-pad: 16px;
-
-  /* type scale and weights */
-  --aic-fs-xs: 10px; --aic-fs-sm: 12px; --aic-fs-md: 14px; --aic-fs-lg: 16px;
-  --aic-fw-medium: 500; --aic-fw-semibold: 600;
-  --aic-lh-normal: 1.4; --aic-lh-relaxed: 1.5; --aic-lh-loose: 1.65;
-
-  /* depth */
-  --aic-scrim: rgba(0,0,0,.5);
-  --aic-shadow-modal: 0 20px 48px rgba(0,0,0,.3);
-  --aic-shadow-pop: 0 6px 18px rgba(0,0,0,.2);
-}
-```
-
-Set these on the page's own `:root`, or on whatever element the widget's
-markup ends up under — `chat.css`'s own defaults only apply where nothing
-more specific wins, same as any other CSS. Nothing else in the file needs
-touching, and there is no build step to run after changing them.
+A few `aic-` class names remain because hosts and tests reach for them:
+`.aic-box` on the window, `.aic-input`, `.aic-turn`, `.aic-reply`,
+`.aic-status` (with `.aic-live` while a run is going), `.aic-doing`, `.aic-for`
+and `.aic-sub` for the two caption lines, `.aic-permission` and `.aic-stop`.
+Everything structural is Tenon's, so `.tenon-window`, `.tenon-modal__title` and
+`.tenon-window__grip--se` are where to look for the frame.
 
 ## The Node engine (`@tiagopedras/ai-chat-engine/node`)
 
@@ -475,7 +473,7 @@ fighting over one transcript file).
 
 ### `ChatEngine` — the same modal, a Node backend
 
-Answers `interface/chat.js`'s five-call contract (plus the optional sixth)
+Answers the chat window's five-call contract (plus the optional sixth)
 the same way `engine.py` + `http_glue.py` do, but by calling the Agent SDK
 directly rather than spawning a `claude` process — useful for a host that
 already depends on the SDK for `SessionPool` and would rather not run two
@@ -546,18 +544,27 @@ happens to need it.
 
 ### Two engines, one contract
 
-`engine.py` and this one both answer `interface/chat.js`'s five-call
+`engine.py` and this one both answer the chat window's five-call
 contract, by different routes — a spawned CLI process versus the Agent SDK
 directly — and for now that's deliberate: peers, not one reference
 implementation with the other as a stopgap. The gap between them is real
 though. `engine.py` has no equivalent of the SDK's `canUseTool` hook, so it
-cannot drive the permission-prompt banner `interface/chat.js`'s `board_permission`
+cannot drive the permission-prompt banner the chat window's `board_permission`
 line depends on — that capability only exists on this side of the split.
 Whether that gap closes by extending `engine.py`, or by `engine.py` staying
 the simple, dependency-free option and this engine the fuller one, is still
 open.
 
 ## Status
+
+The window was plain JavaScript (`interface/chat.js` and `chat.css`) until 19
+Sep 2026, when it was rewritten in React on Tenon's components and the old
+files were removed. Every method a host calls on an instance kept its name and
+its meaning, so a host changes the two paths it loads and nothing else. What
+went: `renderSection()`, the `scrim` option, the `--aic-*` custom properties and
+the `aic-` class names on the frame. Tenon gained `Window`, `Markdown`,
+`EditableText`, `Disclosure`, `LinkButton`, a glyph `Spinner` and a `bare` Modal
+to carry it, at v0.7.0.
 
 Two integrations exist. `to-dos`'s board, on the `claude-from-the-card`
 branch, is the real one — a task's `chat:` tag, its own state object, its

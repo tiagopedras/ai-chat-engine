@@ -102,7 +102,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             rel = path[len("/ai-chat/"):]
             if ".." in rel.split("/"):
                 return self._json(404, {"error": "not found"})
-            full = os.path.join(ROOT, "interface", rel)
+            full = os.path.join(ROOT, "dist", rel)
             if not os.path.isfile(full):
                 return self._json(404, {"error": "not found"})
             ctype = mimetypes.guess_type(full)[0] or "application/octet-stream"

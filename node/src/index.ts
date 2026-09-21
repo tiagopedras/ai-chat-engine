@@ -5,7 +5,7 @@
  * board's own business rather than a session's taken back out: no
  * geometry, no window rects, no projects, no view state. A host wires
  * `SessionPool` to its own UI and its own `CardStore`, and `ChatEngine` to
- * `interface/chat.js`'s modal the same way `engine.py` does for a Python
+ * the chat window the same way `engine.py` does for a Python
  * host — see this package's root README for both.
  */
 

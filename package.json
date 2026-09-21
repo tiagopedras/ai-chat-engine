@@ -1,36 +1,49 @@
 {
   "name": "@tiagopedras/ai-chat-engine",
-  "version": "0.4.0",
-  "description": "A Claude Code chat modal any local app can drop in, plus the Python engine that runs the CLI behind it. Vanilla JS/CSS, no build step, no dependency.",
+  "version": "0.5.0",
+  "description": "A Claude Code chat window any local app can drop in, built from Tenon's components, plus the engines that run the CLI behind it. React, shipped both as a component and as a one-file bundle for pages with no build.",
   "license": "UNLICENSED",
   "type": "module",
-  "main": "interface/chat.js",
-  "browser": "interface/chat.js",
-  "style": "interface/chat.css",
+  "main": "dist/react/index.js",
+  "browser": "dist/ai-chat.js",
+  "style": "dist/chat.css",
   "exports": {
-    ".": "./interface/chat.js",
-    "./chat.js": "./interface/chat.js",
-    "./chat.css": "./interface/chat.css",
+    ".": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/react/index.js"
+    },
+    "./ai-chat.js": "./dist/ai-chat.js",
+    "./chat.css": "./dist/chat.css",
+    "./chat.standalone.css": "./dist/chat.standalone.css",
     "./node": "./node/dist/index.js",
     "./package.json": "./package.json",
     "./cards.js": "./interface/cards.js"
   },
   "files": [
-    "interface/chat.js",
+    "dist",
     "interface/cards.js",
     "interface/cards.d.ts",
-    "interface/chat.css",
     "node/dist",
     "engine.py",
     "http_glue.py",
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "prepublishOnly": "npm run build"
+    "build:node": "tsc -p tsconfig.json",
+    "build:react": "vite build",
+    "build:bundle": "vite build --mode bundle",
+    "build:types": "tsc -p tsconfig.react.json",
+    "build:css": "node scripts/standalone-css.mjs",
+    "build": "npm run build:node && npm run build:react && npm run build:bundle && npm run build:types && npm run build:css",
+    "check": "tsc --noEmit -p tsconfig.react.json",
+    "prepublishOnly": "npm run build",
+    "test": "node test/chat.test.mjs"
   },
   "peerDependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3"
+    "@anthropic-ai/claude-agent-sdk": "^0.3",
+    "@tiagopedras/tenon": ">=0.7.0",
+    "react": "^18.3.1 || ^19.0.0",
+    "react-dom": "^18.3.1 || ^19.0.0"
   },
   "engines": {
     "node": ">=18"
@@ -49,6 +62,28 @@
   "devDependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.251",
     "@types/node": "^22.20.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@tiagopedras/tenon": "github:tiagopedras/tenon#v0.7.0",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^8.3.0"
+  },
+  "types": "dist/types/index.d.ts",
+  "peerDependenciesMeta": {
+    "@anthropic-ai/claude-agent-sdk": {
+      "optional": true
+    },
+    "@tiagopedras/tenon": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   }
 }

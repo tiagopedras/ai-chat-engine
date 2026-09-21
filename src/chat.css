@@ -1,0 +1,125 @@
+/* The chat window's own rules: what is arranged around Tenon's components, and
+   nothing they already draw. The dialog, its head and close button, the
+   buttons, the composer's field, the tool-call pills, the permission banner,
+   the markdown and the spinner are all Tenon's (tenon-react.css), so this
+   file needs that loaded, and tenon.css before it for the tokens. A page that
+   has neither loads chat.standalone.css instead, which is all three in one.
+
+   Every value here is a Tenon token, so a host restyles the window by
+   restyling Tenon, and the two never describe the same thing twice.
+
+   Modelled on the claude.ai composer and thread. ../claude-chat-interface-
+   findings.md is the spec this follows, not background reading. The parts
+   worth copying were the asymmetry (a bubble for you, plain prose for the
+   reply), one slot for the primary action, and a status line whose words are
+   the progress. The part worth not copying was hiding the trace behind a
+   hover, so it stays visible here. */
+
+/* A plain modal is a fixed height so the composer stays at the bottom however
+   short the conversation is. Tenon's Modal caps it to the screen. */
+.aic-modal { height: 720px; }
+
+.aic-box { font-family: var(--tenon-text-body-family); }
+.aic-box .tenon-modal__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aic-for, .aic-sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- the transcript ---- */
+
+/* .aic-body sits absolutely inside its wrap rather than being a flex child,
+   so the scroll pill can share the same box without either needing to know
+   the other's height. */
+.aic-bodywrap { position: relative; flex: 1; min-height: 0; }
+.aic-body { position: absolute; inset: 0; overflow-y: auto; padding: var(--tenon-dimension-200); }
+.aic-none { margin: 0 0 var(--tenon-dimension-100); font-size: var(--tenon-text-body-sm-size); color: var(--tenon-text-faint); }
+
+.aic-scrollpill {
+  position: absolute;
+  left: 50%;
+  bottom: var(--tenon-dimension-175);
+  transform: translateX(-50%);
+  border-radius: var(--tenon-radius-full);
+  box-shadow: var(--tenon-elevation-overlay);
+}
+
+.aic-permission { flex: none; margin: var(--tenon-dimension-150) var(--tenon-dimension-175); }
+
+/* ---- one turn ---- */
+
+.aic-turn { margin: 0 0 var(--tenon-dimension-250); }
+.aic-turn:last-child { margin-bottom: var(--tenon-dimension-050); }
+.aic-mine { display: flex; justify-content: flex-end; margin-bottom: var(--tenon-dimension-175); }
+.aic-minewrap { display: flex; flex-direction: column; align-items: flex-end; gap: var(--tenon-dimension-050); max-width: 82%; }
+.aic-bubble {
+  max-width: 100%;
+  padding: var(--tenon-dimension-125) var(--tenon-dimension-150);
+  background: var(--tenon-background-neutral);
+  border-radius: var(--tenon-radius-lg);
+  overflow-wrap: anywhere;
+}
+.aic-bubble .tenon-markdown { line-height: var(--tenon-typography-line-height-relaxed); }
+
+/* Retry, Edit and a Copy of your own words. claude.ai reveals these on hover
+   too, and they stay while one has focus so they do not vanish out from under
+   someone tabbing to them. */
+.aic-mineacts { display: flex; gap: var(--tenon-dimension-075); opacity: 0; transition: opacity 120ms ease; }
+.aic-mine:hover .aic-mineacts, .aic-mineacts:focus-within { opacity: 1; }
+
+.aic-acts { margin-top: var(--tenon-dimension-125); }
+.aic-turn .tenon-button[data-state='done'] { color: var(--tenon-text-accent); border-color: var(--tenon-stroke-accent); }
+.aic-turn .tenon-button[data-state='failed'] { color: var(--tenon-text-error); border-color: var(--tenon-stroke-error); }
+.aic-err { margin-top: var(--tenon-dimension-100); }
+
+/* ---- what it did ---- */
+
+.aic-trace { margin: 0 0 var(--tenon-dimension-150); }
+.aic-timeline { list-style: none; margin: 0; padding: 0 0 0 var(--tenon-dimension-050); border-left: 1px solid var(--tenon-stroke-default); }
+.aic-timeline li {
+  position: relative;
+  padding: var(--tenon-dimension-037) 0 var(--tenon-dimension-037) var(--tenon-dimension-175);
+  font-size: var(--tenon-text-body-sm-size);
+  color: var(--tenon-text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aic-tick {
+  position: absolute;
+  left: -3px;
+  top: 10px;
+  width: 5px;
+  height: 5px;
+  border-radius: var(--tenon-radius-full);
+  background: var(--tenon-stroke-default);
+  outline: 2px solid var(--tenon-background-raised);
+}
+
+/* Every tool call, always visible, as a pill where it happened: alternating
+   reply blocks and rows of pills, in the order they came. */
+.aic-flow > .aic-reply { margin-bottom: var(--tenon-dimension-125); }
+.aic-flow > *:last-child { margin-bottom: 0; }
+.aic-toolpills { display: flex; flex-wrap: wrap; gap: var(--tenon-dimension-075); margin: 0 0 var(--tenon-dimension-150); }
+
+/* ---- status and composer ---- */
+
+.aic-status {
+  display: flex;
+  align-items: center;
+  gap: var(--tenon-dimension-100);
+  padding: var(--tenon-dimension-100) var(--tenon-dimension-200);
+  border-top: 1px solid var(--tenon-stroke-subtle);
+  font-size: var(--tenon-text-body-sm-size);
+  color: var(--tenon-text-faint);
+}
+.aic-status.aic-live { color: var(--tenon-text-subtle); }
+.aic-doing { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aic-clock { font-style: normal; color: var(--tenon-text-faint); }
+
+.aic-foot {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--tenon-dimension-100);
+  padding: var(--tenon-dimension-150) var(--tenon-dimension-175);
+  border-top: 1px solid var(--tenon-stroke-subtle);
+}
+.aic-foot .tenon-textarea { flex: 1; width: auto; min-width: 0; }
+.aic-foot .tenon-button { flex: none; }

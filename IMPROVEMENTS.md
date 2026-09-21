@@ -14,45 +14,26 @@ needs a decision, a new tag, or a new piece of the app before it can be built.
 ## Small
 
 - **Opening an existing session leaves the transcript scrolled to the top.**
-  The only place `render()` moves the scroll is `interface/chat.js:1196`, and
-  it is guarded by `run && run.running`, so a conversation read back off disk
-  paints its whole history and sits at message one — the latest reply is
-  several screens down. `loadTranscript()` at `interface/chat.js:996` ends with
-  a plain `render()` and knows nothing about where the box should be. Either
-  that final render pins `dom.body.scrollTop = dom.body.scrollHeight`, or
-  `openInternal()` sets a one-shot flag the next `render()` consumes, which
-  also covers the empty-transcript and error paths without a second rule.
-  `updateScrollPill()` runs straight after either way, so the "New messages"
-  pill stays correct.
+  The only place the window moves the scroll is the layout effect in
+  `src/Transcript.tsx`, and it is guarded by `view.busy || wasBusy.current`, so
+  a conversation read back off disk paints its whole history and sits at
+  message one, with the latest reply several screens down. The fix is one more
+  condition there: pull to the bottom on the render where `view.loading` goes
+  from true to false, which also covers the empty-transcript and error paths.
+  The "New messages" pill measures straight after either way, so it stays
+  correct.
 
-- **A URL in a chat message renders as plain text.** `mdInline()` at
-  `interface/chat.js:87` handles code spans, bold and italics and nothing else,
-  so a reply carrying `http://localhost:8765/#!task=vu2t82` can only be read and
-  copied by hand. A pass after the code-span replace would turn bare
-  `http(s)://` URLs and Markdown `[text](url)` into anchors, skipping anything
-  already inside a `<code>` the line before it produced. A link on the page's
-  own address should open in the same tab, with no `target="_blank"`, so the app
-  hosting the chat window gets to handle it — a board link is the case that
-  matters, and the host's own hashchange listener is what should see it. Every
-  other link opens in a new tab with `rel="noopener"`.
+- **A Markdown link `[text](url)` in a chat message renders as written.** Bare
+  `http(s)://` URLs already become anchors, in `inlineNodes()` in Tenon's
+  `Markdown`, but the bracket form is outside its subset, so a reply that
+  writes one shows the brackets. It wants a match in `links()` ahead of the
+  bare-URL pass. A link on the page's own address should open in the same tab,
+  with no `target="_blank"`, so the app hosting the chat window gets to handle
+  it. A board link is the case that matters, and the host's own hashchange
+  listener is what should see it. Every other link opens in a new tab with
+  `rel="noopener"`, which `Markdown` does not set yet either.
 
 ## Big
-
-- **The chat window draws its own dialog, buttons, composer, pills and permission
-  banner, and Tenon now has components for every one of them.** `modalHTML()` at
-  `interface/chat.js:248` writes the whole window as one HTML string, and
-  `interface/chat.css` styles it with its own `.aic-scrim` and `.aic-box` (the
-  Modal), `.aic-btn` (Button), `.aic-input` (Textarea), `.aic-star` (Spinner),
-  `.aic-pill` (Pill) and `.aic-permission` (Alert). Tenon's copies came from
-  these, so the two now describe the same things twice and a change to one does
-  not reach the other. Using the real ones is harder than it sounds, because
-  `chat.js` is plain JavaScript that a host drops in without a build step, and
-  the components are React. Either the package ships a second, vanilla build of
-  them that `chat.js` renders into, or the window becomes a React component the
-  hosts mount. Both cost the property `chat.css` is written around: it needs no
-  stylesheet loaded first, and it does not care what its host uses. The window's
-  own `windowed` mode (`applyRect()`, the eight grips, drag by the head) has no
-  equivalent in Tenon's Modal yet and would have to be added there first.
 
 - **`cards.js` has no tests of its own.** It went in on 4 Sep 2026 with the
   layout arithmetic lifted out of ai_canvas, and it is covered only indirectly:
@@ -65,44 +46,13 @@ needs a decision, a new tag, or a new piece of the app before it can be built.
   `containBox`'s floor and its empty cases, `nextZ` across a Map and an array,
   and `resolveMembers` finding a card by either of its two identities.
 
-- **A way to test this package on its own.** Every change to `chat.js` so far
-  has been checked by driving it from a host: running ai_canvas, opening a
-  card, clicking through the window. That makes improving the widget depend on
-  a consuming app being in a working state, and it spends real Agent SDK turns
-  to look at a button.
-
-  What is missing is a harness inside this repo. A plain HTML page that loads
-  `interface/chat.js` and `chat.css` straight off disk and drives them through
-  a scripted transport, with canned stream-json lines instead of a backend: no
-  CLI, nothing to spend, nothing to install. Enough scripts to reach every
-  branch the window has, since each is a place a bug can hide: a plain reply,
-  tool calls inline, a run that stops on a permission request, one that fails
-  mid-run, one slow enough to watch the thinking indicator. Then buttons for
-  what a host drives from outside, which is the half no host exercises
-  deliberately: `setHeader`, `setRect`, `setZIndex`, `setActive`, opening a
-  second instance, `destroy`, and a count of `.aic-wrap` in the document.
-
-  That last one is the case for building it. The leak `destroy()` fixed in
-  0.4.0 was found through a failing assertion in ai_canvas about a project
-  name, three steps removed from the cause. A count in a harness would have
-  shown it on the second click.
-
-  `examples/notes_demo.py` is not this. It proves the module works in a second
-  host, which is a different question, and it goes through `engine.py` and the
-  real CLI.
-
-  This is separate from getting a change *into* a host, which is already
-  solved: `npm pack` here, then `npm install --no-save <tarball>` there. Worth
-  writing into the README, since it is not obvious, and since `--no-save`
-  means a later plain `npm install` in the host silently removes it again.
+- **Getting a change into a host without publishing.** `npm pack` here, then
+  `npm install --no-save <tarball>` there. Worth writing into the README, since
+  it is not obvious, and since `--no-save` means a later plain `npm install` in
+  the host silently removes it again.
 
 - **Enter in the chat input sends the message.** Right now only Cmd+Enter
   submits; plain Enter should trigger send too (Shift+Enter for a newline).
-
-- **Theme the chat window to the host's own CSS.** `chat.css` today ships one
-  fixed look. A host should be able to make the window match its own design
-  system — colours, fonts, radii — rather than standing out as a foreign
-  widget.
 
 - **Closing animation should shrink back toward the card.** Opening already
   does a FLIP grow from the card's own rect; closing doesn't mirror it — the
@@ -127,14 +77,14 @@ needs a decision, a new tag, or a new piece of the app before it can be built.
   which is right for two or three and a wall of near-identical rows past
   that. A run of consecutive tool entries should collapse into one card:
   collapsed shows only the most recent command, one line, with a way to open
-  it and see the full run. Worth doing while `flowHTML`/`pillsHTML` are
-  fresh (see `interface/chat.js`).
+  it and see the full run. It belongs in `Flow` in `src/Transcript.tsx`, which builds the
+  pill rows.
 
 - **A permission-mode switcher inside the chat window.** Also moved from
   `ai_canvas`. A way to change Claude Code's mode — auto, accept edits, plan,
   and the rest — from inside an open session, not only at launch. Straddles
   both halves of the split: the control belongs in the shared chat window
-  (`interface/`), the plumbing in the session engine. Cheapest once the Node
+  (`src/ChatWindow.tsx`), the plumbing in the session engine. Cheapest once the Node
   engine port below has actually landed, since the plumbing is that engine's.
 
 - **Pull out shared code as a private GitHub package.** Any code here reused by
@@ -144,8 +94,8 @@ needs a decision, a new tag, or a new piece of the app before it can be built.
   projects that need it.
 
   `package.json` now exists in this repo (`@tiagopedras/ai-chat-engine`,
-  `publishConfig` pointed at `npm.pkg.github.com`) — `interface/chat.js` and
-  `chat.css` are the package; `engine.py`/`http_glue.py` stay copy-in
+  `publishConfig` pointed at `npm.pkg.github.com`) — `dist/ai-chat.js`, `dist/react/` and
+  `dist/chat.css` are the package; `engine.py`/`http_glue.py` stay copy-in
   reference code, per the README. Pushed to
   `github.com/tiagopedras/ai-chat-engine` (private repo, personal account).
 
