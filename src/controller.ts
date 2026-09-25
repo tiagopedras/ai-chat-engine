@@ -1,5 +1,7 @@
 import { chatTitle, desktopHref, runDoing, runDoneLabel, toolLabel, whenLabel } from './format';
 import { DEFAULT_ENDPOINTS, makeDefaultTransport } from './transport';
+import { dockJoin, dockLeave, dockNotify, dockRectFor, dockSubscribe } from './dock';
+import type { DockState } from './dock';
 import type {
   ChatOptions, ChatStatus, Header, Origin, PermissionDecision, PermissionRequest, Rect,
   SessionRow, SessionsIndex, Transport, Turn,
@@ -92,7 +94,15 @@ export interface ChatView {
   inlineTools: boolean;
   thinkingGlyphs: boolean;
   renamable: boolean;
-  presentation: { rect: Rect | null; growFrom: Origin | null; zIndex: number | undefined; active: boolean; peeked: boolean };
+  /** Whether the host asked for the minimise and anchor buttons. */
+  dockable: boolean;
+  presentation: {
+    rect: Rect | null; growFrom: Origin | null; zIndex: number | undefined; active: boolean; peeked: boolean;
+    /** Docked to the bottom edge as a bar or a panel, or 'none' for the ordinary modal or window. */
+    dock: DockState;
+    /** Where the dock row puts it, when docked. */
+    dockRect: Rect | null;
+  };
 }
 
 export class ChatController {
@@ -116,6 +126,9 @@ export class ChatController {
   private zIndex: number | undefined;
   private active = true;
   private peeked = false;
+  private readonly dockable: boolean;
+  private dock: DockState = 'none';
+  private unDock: (() => void) | null = null;
 
   private listeners = new Set<() => void>();
   private snap: ChatView | null = null;
@@ -127,6 +140,9 @@ export class ChatController {
     this.transport = Object.assign(makeDefaultTransport(endpoints, guard), opts.transport || {});
     this.windowed = !!opts.windowed;
     this.defaultMode = opts.mode === 'work' ? 'work' : 'ask';
+    this.dockable = !!opts.dockable;
+    /* Another chat joining or leaving the row moves this one along it. */
+    if (this.dockable) this.unDock = dockSubscribe(() => { if (this.dock !== 'none') this.emit(); });
   }
 
   /* ---- store ---- */
@@ -261,6 +277,7 @@ export class ChatController {
 
   private finishClose(): void {
     if (this.closeTimer) { clearTimeout(this.closeTimer); this.closeTimer = null; }
+    this.leaveDock();
     this.current = null;
     this.closing = false;
     this.emit();
@@ -544,6 +561,37 @@ export class ChatController {
   setActive = (v: boolean): void => { this.active = !!v; this.emit(); };
   setPeeked = (v: boolean): void => { this.peeked = !!v; this.emit(); };
 
+  /* ---- docked presentation ----
+     No-ops unless the host passed `dockable`. A docked chat is still the same
+     open conversation: only where and how big it is drawn changes. */
+
+  dockState = (): DockState => this.dock;
+  /** Whether any conversation this instance started is still running, open or not. */
+  running = (): boolean => Object.values(this.runs).some((r) => r.running);
+
+  private setDock(next: DockState): void {
+    if (!this.dockable || !this.current || this.dock === next) return;
+    const was = this.dock;
+    this.dock = next;
+    /* Every docked chat hears the row change and redraws, this one included,
+       except one that has just left it, which redraws itself. */
+    if (next === 'none') { dockLeave(this); this.emit(); }
+    else if (was === 'none') dockJoin(this);
+    else dockNotify();
+  }
+  private leaveDock(): void {
+    if (this.dock === 'none') return;
+    this.dock = 'none';
+    dockLeave(this);
+  }
+
+  /** Down to a bar on the bottom edge: title, run state, close. */
+  minimise = (): void => this.setDock('minimised');
+  /** The full chat as a fixed panel on the bottom edge. */
+  anchor = (): void => this.setDock('anchored');
+  /** Back to the ordinary modal or window. */
+  expand = (): void => this.setDock('none');
+
   rectLive = (r: Rect): void => this.opts.onRectLive?.(r);
   rectChange = (r: Rect): void => {
     this.rect = r;
@@ -558,6 +606,9 @@ export class ChatController {
       delete this.runs[id];
     }
     if (this.closeTimer) { clearTimeout(this.closeTimer); this.closeTimer = null; }
+    this.leaveDock();
+    this.unDock?.();
+    this.unDock = null;
     this.current = null;
     this.closing = false;
     this.listeners.clear();
@@ -605,7 +656,11 @@ export class ChatController {
       inlineTools: !!this.opts.inlineTools,
       thinkingGlyphs: !!this.opts.thinkingGlyphs,
       renamable: typeof this.opts.onRename === 'function',
-      presentation: { rect: this.rect, growFrom: this.growOrigin, zIndex: this.zIndex, active: this.active, peeked: this.peeked },
+      dockable: this.dockable,
+      presentation: {
+        rect: this.rect, growFrom: this.growOrigin, zIndex: this.zIndex, active: this.active, peeked: this.peeked,
+        dock: this.dock, dockRect: this.dock === 'none' ? null : dockRectFor(this),
+      },
     };
   }
 }

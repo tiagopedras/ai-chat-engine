@@ -1,3 +1,4 @@
+import type { DockState } from './dock';
 import type { ChatOptions, ChatStatus, Header, Origin, PermissionDecision, PermissionRequest, Rect, SessionRow, Turn } from './types';
 export type StatusLine = {
     kind: 'permission';
@@ -35,12 +36,18 @@ export interface ChatView {
     inlineTools: boolean;
     thinkingGlyphs: boolean;
     renamable: boolean;
+    /** Whether the host asked for the minimise and anchor buttons. */
+    dockable: boolean;
     presentation: {
         rect: Rect | null;
         growFrom: Origin | null;
         zIndex: number | undefined;
         active: boolean;
         peeked: boolean;
+        /** Docked to the bottom edge as a bar or a panel, or 'none' for the ordinary modal or window. */
+        dock: DockState;
+        /** Where the dock row puts it, when docked. */
+        dockRect: Rect | null;
     };
 }
 export declare class ChatController {
@@ -63,6 +70,9 @@ export declare class ChatController {
     private zIndex;
     private active;
     private peeked;
+    private readonly dockable;
+    private dock;
+    private unDock;
     private listeners;
     private snap;
     constructor(opts?: ChatOptions);
@@ -110,6 +120,17 @@ export declare class ChatController {
     /** Whether a bare Escape is this window's to answer. */
     setActive: (v: boolean) => void;
     setPeeked: (v: boolean) => void;
+    dockState: () => DockState;
+    /** Whether any conversation this instance started is still running, open or not. */
+    running: () => boolean;
+    private setDock;
+    private leaveDock;
+    /** Down to a bar on the bottom edge: title, run state, close. */
+    minimise: () => void;
+    /** The full chat as a fixed panel on the bottom edge. */
+    anchor: () => void;
+    /** Back to the ordinary modal or window. */
+    expand: () => void;
     rectLive: (r: Rect) => void;
     rectChange: (r: Rect) => void;
     pressed: () => void;

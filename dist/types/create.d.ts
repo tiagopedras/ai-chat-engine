@@ -20,6 +20,13 @@ export declare function create(opts?: ChatOptions): {
     setActive: (v: boolean) => void;
     setPeeked: (v: boolean) => void;
     setHeader: (spec: import("./types").Header | null) => void;
+    minimise: () => void;
+    anchor: () => void;
+    expand: () => void;
+    dockState: () => import("./dock").DockState;
+    running: () => boolean;
+    /** The session the open conversation is on, or '' for a new one not yet sent or nothing open. */
+    session: () => string;
     /** Takes the instance off the page for good: its markup, its listeners and any run in flight. closeChat() only hides it. */
     destroy(): void;
 };

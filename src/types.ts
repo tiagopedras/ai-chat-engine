@@ -125,6 +125,8 @@ export interface ChatOptions {
   onRectLive?: (rect: Rect) => void;
   onRectChange?: (rect: Rect) => void;
   onFocus?: () => void;
+  /** Minimise and anchor buttons in the head, docking the chat to the bottom-right edge. Off by default. */
+  dockable?: boolean;
   /** The CLI's cycling asterisk instead of a turning ring. */
   thinkingGlyphs?: boolean;
   /** Makes the title editable in place and hands back what was typed. */
