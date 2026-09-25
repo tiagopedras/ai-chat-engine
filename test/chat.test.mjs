@@ -179,6 +179,36 @@ ok('  and the host hears once it has gone', await t.evaluate(`window.wchanged >=
 await t.evaluate(`w.destroy()`);
 ok('destroy leaves nothing behind', await t.evaluate(`!document.querySelector('[data-ai-chat]') && !document.querySelector('.tenon-window-layer')`));
 
+/* ---- docked: minimised and anchored ---- */
+await t.evaluate(`
+  window.d1 = AIChat.create({ transport: makeTransport(), windowed: true, dockable: true });
+  window.d2 = AIChat.create({ transport: makeTransport(), windowed: true, dockable: true });
+  d1.openNew('t1', 'k1', ''); d2.openNew('t2', 'k2', '');
+`);
+ok('a dockable chat offers Minimise', await t.until(`document.querySelectorAll('.aic-minimise').length === 2`));
+ok('a chat without dockable offers nothing new', await t.evaluate(`(() => { const x = AIChat.create({ transport: makeTransport(), windowed: true }); x.openNew('t3','k3',''); const n = document.querySelectorAll('.aic-minimise').length; x.destroy(); return n === 2; })()`));
+await t.evaluate(`document.querySelector('.aic-minimise').click()`);
+ok('Minimise docks it as a bar', await t.until(`document.querySelectorAll('.aic-minimised').length === 1 && d1.dockState() === 'minimised'`));
+ok('  the bar hides the conversation', await t.evaluate(`getComputedStyle(document.querySelector('.aic-minimised .tenon-modal__body')).display === 'none'`));
+ok('  and sits on the bottom-right edge', await t.evaluate(`(() => { const r = document.querySelector('.aic-minimised').getBoundingClientRect(); return Math.abs(r.bottom - innerHeight) < 2 && innerWidth - r.right < 40; })()`));
+await t.evaluate(`d2.minimise()`);
+ok('a second one lines up to the left of the first', await t.until(`(() => { const [a, b] = [...document.querySelectorAll('.aic-minimised')].map(e => e.getBoundingClientRect()); return a && b && Math.abs(a.left - b.left) > 200; })()`));
+await t.evaluate(`document.querySelector('.aic-minimised .tenon-modal__title').click()`);
+ok('clicking a bar opens it anchored', await t.until(`document.querySelectorAll('.aic-anchored').length === 1`));
+ok('  an anchored panel has no grips to resize', await t.evaluate(`getComputedStyle(document.querySelector('.aic-anchored .tenon-window__grip')).display === 'none'`));
+const before = await t.evaluate(`JSON.stringify(document.querySelector('.aic-anchored').getBoundingClientRect())`);
+await t.evaluate(`(() => { const h = document.querySelector('.aic-anchored .tenon-window__head'); const r = h.getBoundingClientRect();
+  h.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.left + 20, clientY: r.top + 10 }));
+  window.dispatchEvent(new PointerEvent('pointermove', { clientX: r.left - 200, clientY: r.top - 200 }));
+  window.dispatchEvent(new PointerEvent('pointerup', {})); })()`);
+await wait(100);
+ok('  and does not move when dragged', await t.evaluate(`JSON.stringify(document.querySelector('.aic-anchored').getBoundingClientRect())`) === before);
+await t.evaluate(`document.querySelector('.aic-anchored .aic-expand').click()`);
+ok('Expand takes it back to the ordinary window', await t.until(`document.querySelectorAll('.aic-docked').length === 1 && [d1, d2].some(d => d.dockState() === 'none')`));
+await t.evaluate(`d1.closeChat(); d2.closeChat()`);
+ok('closing takes both out of the dock', await t.until(`!document.querySelector('.aic-docked') && d1.dockState() === 'none' && d2.dockState() === 'none'`, 3000));
+await t.evaluate(`d1.destroy(); d2.destroy()`);
+
 const errors = t.logs.filter((l) => /^EXC|^error/i.test(l));
 ok('no console errors', errors.length === 0, errors.join(' | '));
 t.close();

@@ -156,15 +156,72 @@ export function ChatWindow({ controller }: { controller: ChatController }) {
     </>
   );
 
+  const p = view.presentation;
+
+  /* Docked: a bar or a panel on the bottom edge, placed by the dock row
+     rather than by the host or a drag. The same Window, so the head, the
+     close button and the conversation inside are the ones it always had. */
+  if (view.dockable && p.dock !== 'none') {
+    const minimised = p.dock === 'minimised';
+    const ignoreHead = (e: React.PointerEvent) => {
+      controller.pressed();
+      /* Window starts a drag from any press on its head; a docked chat does
+         not move, so a press there stops before it gets that far. */
+      const t = e.target as HTMLElement;
+      if (t.closest('.tenon-window__head') && !t.closest('button,a,input,textarea,[contenteditable="true"]')) e.stopPropagation();
+    };
+    const runLabel = view.status.kind === 'permission' ? 'Needs you'
+      : view.status.kind === 'running' ? view.status.doing
+      : (view.runState || '');
+    const dockEnd = minimised
+      ? <span className="aic-dockstate">{runLabel}</span>
+      : (
+        <>
+          {headEnd}
+          <Button variant="ghost" size="sm" iconOnly className="aic-minimise" aria-label="Minimise" title="Minimise" onClick={controller.minimise}>–</Button>
+          <Button variant="ghost" size="sm" iconOnly className="aic-expand" aria-label="Expand" title="Expand" onClick={controller.expand}>⤢</Button>
+        </>
+      );
+    return (
+      <Window
+        open={view.open}
+        onClose={controller.closeChat}
+        title={minimised ? view.title : title}
+        subtitle={minimised ? undefined : subtitle}
+        headEnd={dockEnd}
+        footer={minimised ? undefined : footer}
+        bare
+        className={'aic-box aic-docked ' + (minimised ? 'aic-minimised' : 'aic-anchored')}
+        data-state={view.runState || undefined}
+        rect={p.dockRect}
+        zIndex={p.zIndex}
+        active={p.active && !minimised}
+        onPointerDownCapture={ignoreHead}
+        onClick={minimised ? (e) => {
+          if (!(e.target as HTMLElement).closest('button,a')) controller.anchor();
+        } : undefined}
+      >
+        {minimised ? null : body}
+      </Window>
+    );
+  }
+
+  /* The way down to the dock, for a host that asked for it. */
+  const openEnd = view.dockable ? (
+    <>
+      {headEnd}
+      <Button variant="ghost" size="sm" iconOnly className="aic-minimise" aria-label="Minimise" title="Minimise" onClick={controller.minimise}>–</Button>
+    </>
+  ) : headEnd;
+
   if (view.windowed) {
-    const p = view.presentation;
     return (
       <Window
         open={view.open}
         onClose={controller.closeChat}
         title={title}
         subtitle={subtitle}
-        headEnd={headEnd}
+        headEnd={openEnd}
         footer={footer}
         bare
         className="aic-box"
@@ -188,7 +245,7 @@ export function ChatWindow({ controller }: { controller: ChatController }) {
       onClose={controller.closeChat}
       title={title}
       subtitle={subtitle}
-      headEnd={headEnd}
+      headEnd={openEnd}
       footer={footer}
       size="lg"
       bare

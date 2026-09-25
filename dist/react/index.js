@@ -169,7 +169,7 @@ function T({ view: e, controller: i, onEdit: s }) {
 function E(e) {
 	return i(e.subscribe, e.getSnapshot, e.getSnapshot);
 }
-function D(t) {
+function ee(t) {
 	let [n, i] = r(() => Date.now());
 	return e(() => {
 		if (!t) return;
@@ -180,8 +180,8 @@ function D(t) {
 }
 //#endregion
 //#region src/ChatWindow.tsx
-function O({ view: e }) {
-	let t = D(e.status.kind === "running"), n = e.status, r = /* @__PURE__ */ _(p, {
+function te({ view: e }) {
+	let t = ee(e.status.kind === "running"), n = e.status, r = /* @__PURE__ */ _(p, {
 		size: "sm",
 		variant: e.thinkingGlyphs ? "glyph" : "ring",
 		className: e.thinkingGlyphs ? "aic-star aic-glyph" : "aic-star",
@@ -214,7 +214,7 @@ function O({ view: e }) {
 		children: n.text
 	});
 }
-function k({ view: e, controller: t }) {
+function D({ view: e, controller: t }) {
 	let n = e.permission;
 	return n ? /* @__PURE__ */ _(a, {
 		tone: "warning",
@@ -244,7 +244,7 @@ function k({ view: e, controller: t }) {
 		children: n.description || void 0
 	}) : null;
 }
-function A({ view: e, controller: t, draft: n, setDraft: r, input: i }) {
+function O({ view: e, controller: t, draft: n, setDraft: r, input: i }) {
 	let a = (e) => {
 		e?.preventDefault(), t.send(n) ? r("") : i.current?.focus();
 	};
@@ -279,21 +279,21 @@ function A({ view: e, controller: t, draft: n, setDraft: r, input: i }) {
 		})]
 	});
 }
-function j({ controller: t }) {
-	let i = E(t), [a, o] = r(""), s = n(null);
+function k({ controller: t }) {
+	let i = E(t), [a, s] = r(""), u = n(null);
 	e(() => {
-		i.openId && o(t.takeSeed());
+		i.openId && s(t.takeSeed());
 	}, [i.openId, t]);
-	let u = i.renamable ? /* @__PURE__ */ _(c, {
+	let f = i.renamable ? /* @__PURE__ */ _(c, {
 		value: i.title,
 		onCommit: t.rename
-	}) : i.title, f = i.ownerLabel || i.subtitle ? /* @__PURE__ */ v(g, { children: [i.ownerLabel && /* @__PURE__ */ _("span", {
+	}) : i.title, p = i.ownerLabel || i.subtitle ? /* @__PURE__ */ v(g, { children: [i.ownerLabel && /* @__PURE__ */ _("span", {
 		className: "aic-for",
 		children: i.ownerLabel
 	}), i.subtitle && /* @__PURE__ */ _("span", {
 		className: "aic-sub",
 		children: i.subtitle
-	})] }) : void 0, p = i.desktopHref ? /* @__PURE__ */ _(l, {
+	})] }) : void 0, m = i.desktopHref ? /* @__PURE__ */ _(l, {
 		variant: "ghost",
 		size: "sm",
 		className: "aic-desktop",
@@ -302,61 +302,118 @@ function j({ controller: t }) {
 		rel: "noopener",
 		title: "Imports this session into Claude Desktop and carries it on there",
 		children: "Open in Claude"
-	}) : void 0, m = /* @__PURE__ */ v(g, { children: [/* @__PURE__ */ _(k, {
+	}) : void 0, y = /* @__PURE__ */ v(g, { children: [/* @__PURE__ */ _(D, {
 		view: i,
 		controller: t
 	}), /* @__PURE__ */ _(T, {
 		view: i,
 		controller: t,
 		onEdit: (e) => {
-			o(e), s.current?.focus();
+			s(e), u.current?.focus();
 		}
-	})] }), y = /* @__PURE__ */ v(g, { children: [/* @__PURE__ */ _(O, { view: i }), /* @__PURE__ */ _(A, {
+	})] }), b = /* @__PURE__ */ v(g, { children: [/* @__PURE__ */ _(te, { view: i }), /* @__PURE__ */ _(O, {
 		view: i,
 		controller: t,
 		draft: a,
-		setDraft: o,
-		input: s
-	})] });
-	if (i.windowed) {
-		let e = i.presentation;
+		setDraft: s,
+		input: u
+	})] }), x = i.presentation;
+	if (i.dockable && x.dock !== "none") {
+		let e = x.dock === "minimised", n = (e) => {
+			t.pressed();
+			let n = e.target;
+			n.closest(".tenon-window__head") && !n.closest("button,a,input,textarea,[contenteditable=\"true\"]") && e.stopPropagation();
+		}, r = i.status.kind === "permission" ? "Needs you" : i.status.kind === "running" ? i.status.doing : i.runState || "", a = e ? /* @__PURE__ */ _("span", {
+			className: "aic-dockstate",
+			children: r
+		}) : /* @__PURE__ */ v(g, { children: [
+			m,
+			/* @__PURE__ */ _(o, {
+				variant: "ghost",
+				size: "sm",
+				iconOnly: !0,
+				className: "aic-minimise",
+				"aria-label": "Minimise",
+				title: "Minimise",
+				onClick: t.minimise,
+				children: "–"
+			}),
+			/* @__PURE__ */ _(o, {
+				variant: "ghost",
+				size: "sm",
+				iconOnly: !0,
+				className: "aic-expand",
+				"aria-label": "Expand",
+				title: "Expand",
+				onClick: t.expand,
+				children: "⤢"
+			})
+		] });
 		return /* @__PURE__ */ _(h, {
 			open: i.open,
 			onClose: t.closeChat,
-			title: u,
-			subtitle: f,
-			headEnd: p,
-			footer: y,
+			title: e ? i.title : f,
+			subtitle: e ? void 0 : p,
+			headEnd: a,
+			footer: e ? void 0 : b,
 			bare: !0,
-			className: "aic-box",
+			className: "aic-box aic-docked " + (e ? "aic-minimised" : "aic-anchored"),
 			"data-state": i.runState || void 0,
-			rect: e.rect,
-			growFrom: e.growFrom,
-			zIndex: e.zIndex,
-			active: e.active,
-			peeked: e.peeked,
-			onRectLive: t.rectLive,
-			onRectChange: t.rectChange,
-			onFocus: t.pressed,
-			children: m
+			rect: x.dockRect,
+			zIndex: x.zIndex,
+			active: x.active && !e,
+			onPointerDownCapture: n,
+			onClick: e ? (e) => {
+				e.target.closest("button,a") || t.anchor();
+			} : void 0,
+			children: e ? null : y
 		});
 	}
-	return /* @__PURE__ */ _(d, {
+	let S = i.dockable ? /* @__PURE__ */ v(g, { children: [m, /* @__PURE__ */ _(o, {
+		variant: "ghost",
+		size: "sm",
+		iconOnly: !0,
+		className: "aic-minimise",
+		"aria-label": "Minimise",
+		title: "Minimise",
+		onClick: t.minimise,
+		children: "–"
+	})] }) : m;
+	return i.windowed ? /* @__PURE__ */ _(h, {
 		open: i.open,
 		onClose: t.closeChat,
-		title: u,
-		subtitle: f,
-		headEnd: p,
-		footer: y,
+		title: f,
+		subtitle: p,
+		headEnd: S,
+		footer: b,
+		bare: !0,
+		className: "aic-box",
+		"data-state": i.runState || void 0,
+		rect: x.rect,
+		growFrom: x.growFrom,
+		zIndex: x.zIndex,
+		active: x.active,
+		peeked: x.peeked,
+		onRectLive: t.rectLive,
+		onRectChange: t.rectChange,
+		onFocus: t.pressed,
+		children: y
+	}) : /* @__PURE__ */ _(d, {
+		open: i.open,
+		onClose: t.closeChat,
+		title: f,
+		subtitle: p,
+		headEnd: S,
+		footer: b,
 		size: "lg",
 		bare: !0,
 		className: "aic-box aic-modal",
-		children: m
+		children: y
 	});
 }
 //#endregion
 //#region src/format.ts
-var M = {
+var A = {
 	Read: "file_path",
 	Edit: "file_path",
 	Write: "file_path",
@@ -368,11 +425,11 @@ var M = {
 	Skill: "skill",
 	Task: "description"
 };
-function N(e, t, n) {
-	let r = t || {}, i = M[e], a = i && r[i] ? String(r[i]) : "";
+function j(e, t, n) {
+	let r = t || {}, i = A[e], a = i && r[i] ? String(r[i]) : "";
 	return a ||= Object.values(r).find((e) => typeof e == "string") || "", n && a.indexOf(n + "/") === 0 && (a = a.slice(n.length + 1)), a = a.replace(/\s+/g, " ").trim(), a.length > 70 && (a = a.slice(0, 69) + "…"), a ? e + " " + a : e;
 }
-var P = {
+var M = {
 	starting: "Starting up",
 	thinking: "Thinking it through",
 	writing: "Writing the answer",
@@ -388,46 +445,46 @@ var P = {
 	WebSearch: "Searching the web",
 	done: "Finished"
 };
-function F(e) {
-	return P[e] || (e ? "Using " + e : "Working");
+function N(e) {
+	return M[e] || (e ? "Using " + e : "Working");
 }
-function I(e) {
+function P(e) {
 	return e < .01 ? "under 1¢" : "$" + e.toFixed(2);
 }
-function L(e) {
+function F(e) {
 	let t = Math.max(1, Math.round((e.ms || Date.now() - e.started) / 1e3)), n = [e.status === "done" ? "done" : "stopped", t + "s"];
-	return e.cost && n.push(I(e.cost)), n.join(" · ");
+	return e.cost && n.push(P(e.cost)), n.join(" · ");
 }
-function R(e) {
+function I(e) {
 	let t = String(e).replace(/\s+/g, " ").trim(), n = /[.?!]\s/.exec(t);
 	return n && n.index > 12 && (t = t.slice(0, n.index + 1)), t.length > 54 && (t = t.slice(0, 54).replace(/\s+\S*$/, "") + "…"), t.replace(/[.,;:\s]+$/, "");
 }
-function z(e) {
+function L(e) {
 	return new Date(e.getFullYear(), e.getMonth(), e.getDate()).getTime();
 }
-function B(e) {
+function R(e) {
 	let t = new Date(e || "");
 	if (isNaN(t.getTime())) return "";
-	let n = Math.floor((z(/* @__PURE__ */ new Date()) - z(t)) / 864e5);
+	let n = Math.floor((L(/* @__PURE__ */ new Date()) - L(t)) / 864e5);
 	return n <= 0 ? "today" : n === 1 ? "yesterday" : n < 7 ? n + " days ago" : t.toLocaleDateString(void 0, {
 		day: "numeric",
 		month: "short",
 		year: "numeric"
 	});
 }
-function V(e) {
+function z(e) {
 	return "claude://resume?session=" + encodeURIComponent(e);
 }
 //#endregion
 //#region src/transport.ts
-var H = {
+var B = {
 	status: "/claude.json",
 	sessions: "/claude/sessions.json",
 	transcript: "/claude/transcript.json",
 	forget: "/claude/forget",
 	run: "/claude"
 };
-function U(e, t) {
+function V(e, t) {
 	let n = (e) => ({
 		...e || {},
 		[t.name]: t.value
@@ -499,8 +556,40 @@ function U(e, t) {
 	};
 }
 //#endregion
+//#region src/dock.ts
+var H = 16, U = 12, W = 300, G = 52, K = 400, q = 560, J = [], Y = /* @__PURE__ */ new Set(), X = !1;
+function Z() {
+	Y.forEach((e) => e());
+}
+var ne = Z;
+function re(e) {
+	return Y.add(e), () => {
+		Y.delete(e);
+	};
+}
+function ie(e) {
+	J.includes(e) || J.push(e), !X && typeof window < "u" && (X = !0, window.addEventListener("resize", Z)), Z();
+}
+function Q(e) {
+	let t = J.indexOf(e);
+	t < 0 || (J.splice(t, 1), Z());
+}
+function ae(e) {
+	let t = J.indexOf(e);
+	if (t < 0) return null;
+	let n = typeof window < "u" ? window.innerWidth : 1280, r = typeof window < "u" ? window.innerHeight : 800, i = n - H;
+	for (let e = 0; e < t; e++) i -= (J[e].dockState() === "anchored" ? K : W) + U;
+	let a = e.dockState() === "anchored", o = a ? K : W, s = a ? Math.min(q, r - 32) : G;
+	return {
+		x: i - o,
+		y: r - s,
+		width: o,
+		height: s
+	};
+}
+//#endregion
 //#region src/controller.ts
-var W = class {
+var $ = class {
 	opts;
 	transport;
 	windowed;
@@ -520,19 +609,24 @@ var W = class {
 	zIndex;
 	active = !0;
 	peeked = !1;
+	dockable;
+	dock = "none";
+	unDock = null;
 	listeners = /* @__PURE__ */ new Set();
 	snap = null;
 	constructor(e = {}) {
 		this.opts = e;
 		let t = {
-			...H,
+			...B,
 			...e.endpoints || {}
 		}, n = {
 			name: "X-Board",
 			value: "1",
 			...e.guardHeader || {}
 		};
-		this.transport = Object.assign(U(t, n), e.transport || {}), this.windowed = !!e.windowed, this.defaultMode = e.mode === "work" ? "work" : "ask";
+		this.transport = Object.assign(V(t, n), e.transport || {}), this.windowed = !!e.windowed, this.defaultMode = e.mode === "work" ? "work" : "ask", this.dockable = !!e.dockable, this.dockable && (this.unDock = re(() => {
+			this.dock !== "none" && this.emit();
+		}));
 	}
 	subscribe = (e) => (this.listeners.add(e), () => {
 		this.listeners.delete(e);
@@ -611,7 +705,7 @@ var W = class {
 		}
 	};
 	finishClose() {
-		this.closeTimer &&= (clearTimeout(this.closeTimer), null), this.current = null, this.closing = !1, this.emit(), this.opts.onChange?.();
+		this.closeTimer &&= (clearTimeout(this.closeTimer), null), this.leaveDock(), this.current = null, this.closing = !1, this.emit(), this.opts.onChange?.();
 	}
 	async loadTranscript(e) {
 		let t = this.current;
@@ -622,9 +716,9 @@ var W = class {
 			let t = await this.transport.transcript(e, r);
 			if (!this.current || this.current.session !== e) return;
 			this.current.turns = t.toobig ? [] : t.turns.map((e) => {
-				let t = (e.tools || []).map((e) => N(e.name, e.input, r)), n = Array.isArray(e.parts) && e.parts.length ? e.parts.map((e) => e.type === "tool" ? {
+				let t = (e.tools || []).map((e) => j(e.name, e.input, r)), n = Array.isArray(e.parts) && e.parts.length ? e.parts.map((e) => e.type === "tool" ? {
 					kind: "tool",
-					label: N(e.name, e.input, r)
+					label: j(e.name, e.input, r)
 				} : {
 					kind: "text",
 					text: e.text || ""
@@ -689,7 +783,7 @@ var W = class {
 				}), e.status = "writing";
 			} else if (n.type === "thinking") e.status = "thinking";
 			else if (n.type === "tool_use") {
-				let r = N(n.name, n.input, e.cwd);
+				let r = j(n.name, n.input, e.cwd);
 				t.tools.push(r), t.flow.push({
 					kind: "tool",
 					label: r
@@ -767,7 +861,7 @@ var W = class {
 			session: t.session,
 			ask: n,
 			prompt: i,
-			title: (this.sessionsFor(t.key).find((e) => e.id === t.session) || {}).title || R(n),
+			title: (this.sessionsFor(t.key).find((e) => e.id === t.session) || {}).title || I(n),
 			mode: t.mode || "ask",
 			turns: r ? r.turns : t.turns || []
 		}), !0;
@@ -785,7 +879,7 @@ var W = class {
 			key: t.key,
 			session: t.session,
 			ask: n.ask,
-			title: (this.sessionsFor(t.key).find((e) => e.id === t.session) || {}).title || R(n.ask),
+			title: (this.sessionsFor(t.key).find((e) => e.id === t.session) || {}).title || I(n.ask),
 			mode: t.mode || "ask",
 			turns: r ? r.turns : t.turns || []
 		});
@@ -837,6 +931,19 @@ var W = class {
 	setPeeked = (e) => {
 		this.peeked = !!e, this.emit();
 	};
+	dockState = () => this.dock;
+	running = () => Object.values(this.runs).some((e) => e.running);
+	setDock(e) {
+		if (!this.dockable || !this.current || this.dock === e) return;
+		let t = this.dock;
+		this.dock = e, e === "none" ? (Q(this), this.emit()) : t === "none" ? ie(this) : ne();
+	}
+	leaveDock() {
+		this.dock !== "none" && (this.dock = "none", Q(this));
+	}
+	minimise = () => this.setDock("minimised");
+	anchor = () => this.setDock("anchored");
+	expand = () => this.setDock("none");
 	rectLive = (e) => this.opts.onRectLive?.(e);
 	rectChange = (e) => {
 		this.rect = e, this.opts.onRectChange?.(e);
@@ -850,23 +957,23 @@ var W = class {
 			} catch {}
 			delete this.runs[e];
 		}
-		this.closeTimer &&= (clearTimeout(this.closeTimer), null), this.current = null, this.closing = !1, this.listeners.clear();
+		this.closeTimer &&= (clearTimeout(this.closeTimer), null), this.leaveDock(), this.unDock?.(), this.unDock = null, this.current = null, this.closing = !1, this.listeners.clear();
 	};
 	build() {
 		let e = this.current, t = this.currentRun(), n = e ? this.sessionsFor(e.key).find((t) => t.id === e.session) : void 0, r = n && n.title || t && t.title || "New chat", i = !!(t && t.running), a;
 		return a = e ? t && t.permission ? { kind: "permission" } : t && t.running ? {
 			kind: "running",
-			doing: F(t.status),
+			doing: N(t.status),
 			started: t.started
 		} : t ? {
 			kind: "text",
-			text: (t.mode === "work" ? "Claude, working in " : "Claude, reading in ") + (t.home || "") + " · " + L(t)
+			text: (t.mode === "work" ? "Claude, working in " : "Claude, reading in ") + (t.home || "") + " · " + F(t)
 		} : e.loading ? {
 			kind: "text",
 			text: "Reading the transcript…"
 		} : e.session ? {
 			kind: "text",
-			text: "Earlier conversation · " + (n && B(n.updated) || "")
+			text: "Earlier conversation · " + (n && R(n.updated) || "")
 		} : {
 			kind: "text",
 			text: "New conversation in " + this.home() + " · " + (e.mode === "work" ? "can write" : "reads only")
@@ -883,7 +990,7 @@ var W = class {
 			ownerLabel: e && this.opts.ownerLabel?.(e.owner) || "",
 			subtitle: this.header && this.header.subtitle || "",
 			runState: this.header && this.header.runState || "",
-			desktopHref: this.opts.desktopLink !== !1 && e && e.session ? V(e.session) : null,
+			desktopHref: this.opts.desktopLink !== !1 && e && e.session ? z(e.session) : null,
 			status: a,
 			turns: this.currentTurns().map((e) => ({
 				...e,
@@ -900,21 +1007,24 @@ var W = class {
 			inlineTools: !!this.opts.inlineTools,
 			thinkingGlyphs: !!this.opts.thinkingGlyphs,
 			renamable: typeof this.opts.onRename == "function",
+			dockable: this.dockable,
 			presentation: {
 				rect: this.rect,
 				growFrom: this.growOrigin,
 				zIndex: this.zIndex,
 				active: this.active,
-				peeked: this.peeked
+				peeked: this.peeked,
+				dock: this.dock,
+				dockRect: this.dock === "none" ? null : ae(this)
 			}
 		};
 	}
 };
 //#endregion
 //#region src/create.tsx
-function G(e = {}) {
-	let t = new W(e), n = null, r = null, i = () => {
-		r || (n = document.createElement("div"), n.setAttribute("data-ai-chat", ""), document.body.appendChild(n), r = y(n), r.render(/* @__PURE__ */ _(j, { controller: t })));
+function oe(e = {}) {
+	let t = new $(e), n = null, r = null, i = () => {
+		r || (n = document.createElement("div"), n.setAttribute("data-ai-chat", ""), document.body.appendChild(n), r = y(n), r.render(/* @__PURE__ */ _(k, { controller: t })));
 	};
 	return {
 		loadStatus: t.loadStatus,
@@ -939,10 +1049,16 @@ function G(e = {}) {
 		setActive: t.setActive,
 		setPeeked: t.setPeeked,
 		setHeader: t.setHeader,
+		minimise: t.minimise,
+		anchor: t.anchor,
+		expand: t.expand,
+		dockState: t.dockState,
+		running: t.running,
+		session: () => t.getSnapshot().session,
 		destroy() {
 			t.destroy(), r?.unmount(), n?.remove(), r = null, n = null;
 		}
 	};
 }
 //#endregion
-export { W as ChatController, j as ChatWindow, H as DEFAULT_ENDPOINTS, R as chatTitle, G as create, V as desktopHref, U as makeDefaultTransport, N as toolLabel, E as useChat, B as whenLabel };
+export { $ as ChatController, k as ChatWindow, B as DEFAULT_ENDPOINTS, I as chatTitle, oe as create, z as desktopHref, V as makeDefaultTransport, j as toolLabel, E as useChat, R as whenLabel };

@@ -59,6 +59,13 @@ export function create(opts: ChatOptions = {}) {
     setActive: controller.setActive,
     setPeeked: controller.setPeeked,
     setHeader: controller.setHeader,
+    minimise: controller.minimise,
+    anchor: controller.anchor,
+    expand: controller.expand,
+    dockState: controller.dockState,
+    running: controller.running,
+    /** The session the open conversation is on, or '' for a new one not yet sent or nothing open. */
+    session: (): string => controller.getSnapshot().session,
     /** Takes the instance off the page for good: its markup, its listeners and any run in flight. closeChat() only hides it. */
     destroy() {
       controller.destroy();

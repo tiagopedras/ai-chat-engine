@@ -5,6 +5,7 @@ export { ChatWindow } from './ChatWindow';
 export { ChatController } from './controller';
 export type { ChatView, StatusLine } from './controller';
 export { useChat } from './useChat';
+export type { DockState } from './dock';
 export { create } from './create';
 export type { ChatInstance } from './create';
 export { makeDefaultTransport, DEFAULT_ENDPOINTS } from './transport';
