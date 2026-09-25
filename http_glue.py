@@ -12,7 +12,7 @@ choice; these are only the ones this repo's apps happen to use:
     GET  /claude.json              -> endpoints.status()
     GET  /claude/sessions.json     -> endpoints.sessions()
     GET  /claude/transcript.json   -> endpoints.transcript(session, cwd)
-    GET  /claude/attachable.json   -> endpoints.attachable()
+    GET  /claude/attachable.json   -> endpoints.attachable(query)
     POST /claude/forget            -> endpoints.forget(owner, session)
     POST /claude/assign            -> endpoints.assign(owner, session, to)
     POST /claude/note              -> endpoints.note(owner, session, prompt)
@@ -59,12 +59,14 @@ class ChatEndpoints:
             return None, {"error": "no transcript on disk for that session"}
         return got, None
 
-    def attachable(self):
+    def attachable(self, query=None):
         """Sessions Claude Code has on disk that this engine doesn't already
         know about — conversations that started in a terminal, or in Claude
         Desktop, rather than from this app. For a host offering "attach a
-        session that started elsewhere"."""
-        return {"sessions": self.engine.list_sessions()}
+        session that started elsewhere". query narrows the list before the
+        cap in list_sessions(), for a host with a search box above the
+        rows."""
+        return {"sessions": self.engine.list_sessions(query=query)}
 
     # ---- POSTs ----
 

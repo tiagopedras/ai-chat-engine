@@ -397,7 +397,7 @@ class Engine:
             "config": os.path.exists(self.config_path),
         }
 
-    def list_sessions(self, limit=60):
+    def list_sessions(self, limit=60, query=None):
         """Every session Claude Code has on disk, across every project it has
         ever run in, newest first — a conversation that started in the
         terminal rather than from this app, and never got filed under this
@@ -412,7 +412,12 @@ class Engine:
         applies elsewhere, just done by stopping early instead. A session
         already filed under some owner is left out: there is nothing to
         attach that is already attached.
+
+        query, if given, narrows to sessions whose title or working
+        directory contains it (case-insensitive) before limit is applied —
+        so a search never misses something older than the newest 60.
         """
+        q = (query or "").strip().lower()
         root = os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude")
         root = os.path.join(root, "projects")
         filed = set()
@@ -447,9 +452,12 @@ class Engine:
                 row = _session_head(path)
                 if not row or not row["cwd"]:
                     continue
+                title = (row["title"] or "Untitled conversation")[:MAX_TITLE]
+                if q and q not in title.lower() and q not in row["cwd"].lower():
+                    continue
                 out.append({
                     "id": session_id, "cwd": row["cwd"],
-                    "title": (row["title"] or "Untitled conversation")[:MAX_TITLE],
+                    "title": title,
                     "updated": datetime.datetime.fromtimestamp(mtime).isoformat(timespec="seconds"),
                 })
         out.sort(key=lambda r: r["updated"], reverse=True)
