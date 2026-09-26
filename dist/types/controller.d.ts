@@ -38,6 +38,8 @@ export interface ChatView {
     renamable: boolean;
     /** Whether the host asked for the minimise and anchor buttons. */
     dockable: boolean;
+    /** Kept in the dock row for good, so it has no close button. */
+    pinned: boolean;
     presentation: {
         rect: Rect | null;
         growFrom: Origin | null;
@@ -71,6 +73,7 @@ export declare class ChatController {
     private active;
     private peeked;
     private readonly dockable;
+    private readonly pin;
     private dock;
     private unDock;
     private listeners;
@@ -121,6 +124,7 @@ export declare class ChatController {
     setActive: (v: boolean) => void;
     setPeeked: (v: boolean) => void;
     dockState: () => DockState;
+    pinned: () => boolean;
     /** Whether any conversation this instance started is still running, open or not. */
     running: () => boolean;
     private setDock;

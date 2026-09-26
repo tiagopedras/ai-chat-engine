@@ -2,6 +2,7 @@ import type { Rect } from './types';
 export type DockState = 'none' | 'minimised' | 'anchored';
 export interface Dockable {
     dockState(): DockState;
+    pinned?(): boolean;
 }
 declare function notify(): void;
 /** A docked chat changed size: every one to its left moves. */

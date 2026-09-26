@@ -8,11 +8,12 @@ import type { Rect } from './types';
    The first chat docked sits in the bottom-right corner and each one after it
    lines up to its left, the way LinkedIn's message windows do. A chat that
    leaves the row closes its gap, since every place is worked out afresh from
-   the order on each change. */
+   the order on each change. A pinned chat always takes the corner, whenever
+   it joined, and the rest line up to its left. */
 
 export type DockState = 'none' | 'minimised' | 'anchored';
 
-export interface Dockable { dockState(): DockState }
+export interface Dockable { dockState(): DockState; pinned?(): boolean }
 
 const EDGE = 16;
 const GAP = 12;
@@ -51,14 +52,20 @@ export function dockLeave(c: Dockable): void {
   notify();
 }
 
+/* Pinned first, then the order they joined in. */
+function row(): Dockable[] {
+  return [...docked.filter((d) => d.pinned?.()), ...docked.filter((d) => !d.pinned?.())];
+}
+
 export function dockRectFor(c: Dockable): Rect | null {
-  const i = docked.indexOf(c);
+  const order = row();
+  const i = order.indexOf(c);
   if (i < 0) return null;
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
   let right = vw - EDGE;
   for (let n = 0; n < i; n++) {
-    right -= (docked[n].dockState() === 'anchored' ? ANCHOR_W : MIN_W) + GAP;
+    right -= (order[n].dockState() === 'anchored' ? ANCHOR_W : MIN_W) + GAP;
   }
   const anchored = c.dockState() === 'anchored';
   const width = anchored ? ANCHOR_W : MIN_W;

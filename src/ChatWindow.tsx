@@ -186,12 +186,13 @@ export function ChatWindow({ controller }: { controller: ChatController }) {
       <Window
         open={view.open}
         onClose={controller.closeChat}
+        closeButton={!view.pinned}
         title={minimised ? view.title : title}
         subtitle={minimised ? undefined : subtitle}
         headEnd={dockEnd}
         footer={minimised ? undefined : footer}
         bare
-        className={'aic-box aic-docked ' + (minimised ? 'aic-minimised' : 'aic-anchored')}
+        className={'aic-box aic-docked ' + (minimised ? 'aic-minimised' : 'aic-anchored') + (view.pinned ? ' aic-pinned' : '')}
         data-state={view.runState || undefined}
         rect={p.dockRect}
         zIndex={p.zIndex}

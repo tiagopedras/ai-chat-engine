@@ -127,6 +127,9 @@ export interface ChatOptions {
   onFocus?: () => void;
   /** Minimise and anchor buttons in the head, docking the chat to the bottom-right edge. Off by default. */
   dockable?: boolean;
+  /** Keeps the chat in the dock row for good: it always sits in the
+      bottom-right corner, and closing it minimises it instead. Needs `dockable`. */
+  pinned?: boolean;
   /** The CLI's cycling asterisk instead of a turning ring. */
   thinkingGlyphs?: boolean;
   /** Makes the title editable in place and hands back what was typed. */

@@ -352,12 +352,13 @@ function k({ controller: t }) {
 		return /* @__PURE__ */ _(h, {
 			open: i.open,
 			onClose: t.closeChat,
+			closeButton: !i.pinned,
 			title: e ? i.title : f,
 			subtitle: e ? void 0 : p,
 			headEnd: a,
 			footer: e ? void 0 : b,
 			bare: !0,
-			className: "aic-box aic-docked " + (e ? "aic-minimised" : "aic-anchored"),
+			className: "aic-box aic-docked " + (e ? "aic-minimised" : "aic-anchored") + (i.pinned ? " aic-pinned" : ""),
 			"data-state": i.runState || void 0,
 			rect: x.dockRect,
 			zIndex: x.zIndex,
@@ -574,17 +575,20 @@ function Q(e) {
 	let t = J.indexOf(e);
 	t < 0 || (J.splice(t, 1), Z());
 }
-function ae(e) {
-	let t = J.indexOf(e);
-	if (t < 0) return null;
-	let n = typeof window < "u" ? window.innerWidth : 1280, r = typeof window < "u" ? window.innerHeight : 800, i = n - H;
-	for (let e = 0; e < t; e++) i -= (J[e].dockState() === "anchored" ? K : W) + U;
-	let a = e.dockState() === "anchored", o = a ? K : W, s = a ? Math.min(q, r - 32) : G;
+function ae() {
+	return [...J.filter((e) => e.pinned?.()), ...J.filter((e) => !e.pinned?.())];
+}
+function oe(e) {
+	let t = ae(), n = t.indexOf(e);
+	if (n < 0) return null;
+	let r = typeof window < "u" ? window.innerWidth : 1280, i = typeof window < "u" ? window.innerHeight : 800, a = r - H;
+	for (let e = 0; e < n; e++) a -= (t[e].dockState() === "anchored" ? K : W) + U;
+	let o = e.dockState() === "anchored", s = o ? K : W, c = o ? Math.min(q, i - 32) : G;
 	return {
-		x: i - o,
-		y: r - s,
-		width: o,
-		height: s
+		x: a - s,
+		y: i - c,
+		width: s,
+		height: c
 	};
 }
 //#endregion
@@ -610,6 +614,7 @@ var $ = class {
 	active = !0;
 	peeked = !1;
 	dockable;
+	pin;
 	dock = "none";
 	unDock = null;
 	listeners = /* @__PURE__ */ new Set();
@@ -624,7 +629,7 @@ var $ = class {
 			value: "1",
 			...e.guardHeader || {}
 		};
-		this.transport = Object.assign(V(t, n), e.transport || {}), this.windowed = !!e.windowed, this.defaultMode = e.mode === "work" ? "work" : "ask", this.dockable = !!e.dockable, this.dockable && (this.unDock = re(() => {
+		this.transport = Object.assign(V(t, n), e.transport || {}), this.windowed = !!e.windowed, this.defaultMode = e.mode === "work" ? "work" : "ask", this.dockable = !!e.dockable, this.pin = this.dockable && !!e.pinned, this.dockable && (this.unDock = re(() => {
 			this.dock !== "none" && this.emit();
 		}));
 	}
@@ -697,6 +702,10 @@ var $ = class {
 	openSession = (e, t, n) => this.openInternal(e, t, n, "");
 	closeChat = () => {
 		if (this.current && !this.closing) {
+			if (this.pin) {
+				this.minimise();
+				return;
+			}
 			if (!(this.windowed && this.growOrigin && !(typeof matchMedia == "function" && matchMedia("(prefers-reduced-motion: reduce)").matches))) {
 				this.finishClose();
 				return;
@@ -932,6 +941,7 @@ var $ = class {
 		this.peeked = !!e, this.emit();
 	};
 	dockState = () => this.dock;
+	pinned = () => this.pin;
 	running = () => Object.values(this.runs).some((e) => e.running);
 	setDock(e) {
 		if (!this.dockable || !this.current || this.dock === e) return;
@@ -1008,6 +1018,7 @@ var $ = class {
 			thinkingGlyphs: !!this.opts.thinkingGlyphs,
 			renamable: typeof this.opts.onRename == "function",
 			dockable: this.dockable,
+			pinned: this.pin,
 			presentation: {
 				rect: this.rect,
 				growFrom: this.growOrigin,
@@ -1015,14 +1026,14 @@ var $ = class {
 				active: this.active,
 				peeked: this.peeked,
 				dock: this.dock,
-				dockRect: this.dock === "none" ? null : ae(this)
+				dockRect: this.dock === "none" ? null : oe(this)
 			}
 		};
 	}
 };
 //#endregion
 //#region src/create.tsx
-function oe(e = {}) {
+function se(e = {}) {
 	let t = new $(e), n = null, r = null, i = () => {
 		r || (n = document.createElement("div"), n.setAttribute("data-ai-chat", ""), document.body.appendChild(n), r = y(n), r.render(/* @__PURE__ */ _(k, { controller: t })));
 	};
@@ -1061,4 +1072,4 @@ function oe(e = {}) {
 	};
 }
 //#endregion
-export { $ as ChatController, k as ChatWindow, B as DEFAULT_ENDPOINTS, I as chatTitle, oe as create, z as desktopHref, V as makeDefaultTransport, j as toolLabel, E as useChat, R as whenLabel };
+export { $ as ChatController, k as ChatWindow, B as DEFAULT_ENDPOINTS, I as chatTitle, se as create, z as desktopHref, V as makeDefaultTransport, j as toolLabel, E as useChat, R as whenLabel };

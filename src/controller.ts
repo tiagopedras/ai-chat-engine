@@ -96,6 +96,8 @@ export interface ChatView {
   renamable: boolean;
   /** Whether the host asked for the minimise and anchor buttons. */
   dockable: boolean;
+  /** Kept in the dock row for good, so it has no close button. */
+  pinned: boolean;
   presentation: {
     rect: Rect | null; growFrom: Origin | null; zIndex: number | undefined; active: boolean; peeked: boolean;
     /** Docked to the bottom edge as a bar or a panel, or 'none' for the ordinary modal or window. */
@@ -127,6 +129,7 @@ export class ChatController {
   private active = true;
   private peeked = false;
   private readonly dockable: boolean;
+  private readonly pin: boolean;
   private dock: DockState = 'none';
   private unDock: (() => void) | null = null;
 
@@ -141,6 +144,7 @@ export class ChatController {
     this.windowed = !!opts.windowed;
     this.defaultMode = opts.mode === 'work' ? 'work' : 'ask';
     this.dockable = !!opts.dockable;
+    this.pin = this.dockable && !!opts.pinned;
     /* Another chat joining or leaving the row moves this one along it. */
     if (this.dockable) this.unDock = dockSubscribe(() => { if (this.dock !== 'none') this.emit(); });
   }
@@ -264,6 +268,9 @@ export class ChatController {
 
   closeChat = (): void => {
     if (!this.current || this.closing) return;
+    /* A pinned chat is never closed by its own button or Escape, only put
+       back down as a bar. destroy() still takes it down. */
+    if (this.pin) { this.minimise(); return; }
     const animated = this.windowed && !!this.growOrigin
       && !(typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
     if (!animated) { this.finishClose(); return; }
@@ -566,6 +573,7 @@ export class ChatController {
      open conversation: only where and how big it is drawn changes. */
 
   dockState = (): DockState => this.dock;
+  pinned = (): boolean => this.pin;
   /** Whether any conversation this instance started is still running, open or not. */
   running = (): boolean => Object.values(this.runs).some((r) => r.running);
 
@@ -657,6 +665,7 @@ export class ChatController {
       thinkingGlyphs: !!this.opts.thinkingGlyphs,
       renamable: typeof this.opts.onRename === 'function',
       dockable: this.dockable,
+      pinned: this.pin,
       presentation: {
         rect: this.rect, growFrom: this.growOrigin, zIndex: this.zIndex, active: this.active, peeked: this.peeked,
         dock: this.dock, dockRect: this.dock === 'none' ? null : dockRectFor(this),
