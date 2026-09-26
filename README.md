@@ -135,11 +135,23 @@ the run outright, not just disallowed — they never appear in Claude's tool
 list, so there is nothing to be talked into using. It can read the host's
 working directory and answer; it cannot change anything.
 
+`write`: `ask`, plus file edits inside the run's working directory and nowhere
+else. Bash, NotebookEdit and Task stay removed; Edit and Write come back with
+an allow rule scoped to the cwd, and `--permission-mode dontAsk` refuses any
+edit outside it. A host can name files that stay refused even inside the cwd
+with `Engine(..., write_denies=[...])`, as permission-rule path patterns
+(`to-dos` passes `**/data/*/todo.md`, so every change to a list still goes
+through the board). Gated by the same `"work": true` as `work`. The window
+offers it as a "Can write" switch in the head when the host passes
+`writeSwitch: true` and the helper's status has `work` on; flipping it takes
+effect from the next message, which carries a line telling Claude writing is
+now allowed (`writeNote` overrides the wording).
+
 `work`: does the job in full, permissions bypassed. `engine.Engine.config()`
 only turns this on if the host's own config file says so — a mode that edits
 files across disk should be switched on deliberately, not shipped on.
 
-Neither mode asks a per-tool question — `ask` refuses the tools outright,
+None of the modes asks a per-tool question — `ask` refuses the tools outright, `write` refuses by rule,
 `work` never refuses at all. A backend that drives the Claude Agent SDK
 directly (rather than spawning the `claude` CLI, as `engine.py` does) can
 offer a third answer, a supervised mode where each tool call waits on a

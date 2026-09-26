@@ -12,13 +12,21 @@ No web framework here on purpose. A host wires this into whatever server it
 already runs — see `http_glue.py` for the piece that does that over
 `http.server`, which is what `to-dos` uses.
 
-Two modes, and the difference between them is the whole of the safety story:
+Three modes, and the difference between them is the whole of the safety story:
 
   ask    the default. Bash, Edit, Write, NotebookEdit and Task are removed
          from the run outright — not asked about, not present. It can read
          and answer; it cannot change anything. Stronger than a permission
          setting, because a disallowed tool never appears in Claude's tool
          list at all, so there is nothing to be talked into using.
+
+  write  ask, plus file edits inside the run's working directory and
+         nowhere else. Bash, NotebookEdit and Task stay removed, so the only
+         way to change anything is Edit/Write, and an allow rule scoped to
+         the cwd is what lets those through; anything outside it has no rule
+         and `dontAsk` refuses it. The host's `write_denies` (see
+         WRITE_DENIES) are refused even inside the cwd. Gated by the same
+         `"work": true` as work mode.
 
   work   does the job in full, permissions bypassed. Only exists if the
          host's config turns it on — a button that edits files across the
@@ -49,6 +57,17 @@ MAX_TURNS = 60                  # ...and only the last of these are
 
 # Taken away from an ask run. Not a permission rule: the tools are not there.
 ASK_DENIES = ["Bash", "Edit", "Write", "NotebookEdit", "Task"]
+
+# Taken away from a write run, the same way. Edit and Write stay, held to the
+# cwd by the allow rule argv() adds.
+WRITE_TOOL_DENIES = ["Bash", "NotebookEdit", "Task"]
+
+# Files a write run may not edit even inside its cwd, as permission-rule path
+# patterns (gitignore-style, relative to the cwd). Empty by default: a host
+# names its own through `write_denies`, as to-dos does for data/*/todo.md.
+WRITE_DENIES = []
+
+MODES = ("ask", "write", "work")
 
 
 class RunLimitError(Exception):
@@ -342,10 +361,12 @@ class Engine:
     override per call."""
 
     def __init__(self, default_cwd, config_path, sessions_path,
-                 ask_denies=None, max_runs=MAX_RUNS, default_timeout=DEFAULT_TIMEOUT):
+                 ask_denies=None, max_runs=MAX_RUNS, default_timeout=DEFAULT_TIMEOUT,
+                 write_denies=None):
         self.default_cwd = default_cwd
         self.config_path = config_path
         self.ask_denies = list(ask_denies or ASK_DENIES)
+        self.write_denies = list(write_denies or WRITE_DENIES)
         self.max_runs = max_runs
         self.default_timeout = default_timeout
         self.sessions = SessionStore(sessions_path)
@@ -473,6 +494,15 @@ class Engine:
             out += ["--resume", session]
         if mode == "work":
             out += ["--dangerously-skip-permissions"]
+        elif mode == "write":
+            # `//` makes the path absolute in a permission rule; a lone `/`
+            # would be read relative to the settings file.
+            inside = "/" + cfg["cwd"].rstrip("/") + "/**"
+            out += ["--permission-mode", "dontAsk",
+                    "--allowedTools", "Edit(%s)" % inside, "Write(%s)" % inside,
+                    "--disallowedTools"] + WRITE_TOOL_DENIES
+            for pattern in self.write_denies:
+                out += ["Edit(%s)" % pattern, "Write(%s)" % pattern]
         else:
             out += ["--permission-mode", "dontAsk", "--disallowedTools"] + self.ask_denies
         return out
@@ -495,8 +525,10 @@ class Engine:
             raise RuntimeError("the claude CLI is not on PATH")
 
         cfg = self.config()
-        if mode == "work" and not cfg["work"]:
-            raise PermissionError("work mode is off")
+        if mode not in MODES:
+            mode = "ask"
+        if mode != "ask" and not cfg["work"]:
+            raise PermissionError("%s mode is off" % mode)
 
         with self.runs_lock:
             if self.runs_now >= self.max_runs:

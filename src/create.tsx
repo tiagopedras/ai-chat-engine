@@ -63,6 +63,10 @@ export function create(opts: ChatOptions = {}) {
     anchor: controller.anchor,
     expand: controller.expand,
     dockState: controller.dockState,
+    /** Flips the open conversation between reading only and write mode, from its next message. A no-op unless `writeSwitch` was asked for and the helper allows writing. */
+    setWrite: controller.setWrite,
+    /** Whether the open conversation is in write mode. */
+    canWrite: (): boolean => controller.getSnapshot().canWrite,
     running: controller.running,
     /** The session the open conversation is on, or '' for a new one not yet sent or nothing open. */
     session: (): string => controller.getSnapshot().session,

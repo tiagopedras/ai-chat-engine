@@ -1,15 +1,15 @@
 import { useEffect as e, useLayoutEffect as t, useRef as n, useState as r, useSyncExternalStore as i } from "react";
-import { Alert as a, Button as o, Disclosure as s, EditableText as c, LinkButton as l, Markdown as u, Modal as d, Pill as f, Spinner as p, Textarea as m, Window as h } from "@tiagopedras/tenon";
-import { Fragment as g, jsx as _, jsxs as v } from "react/jsx-runtime";
-import { createRoot as y } from "react-dom/client";
+import { Alert as a, Button as o, Disclosure as s, EditableText as c, LinkButton as l, Markdown as u, Modal as d, Pill as f, Spinner as p, Switch as m, Textarea as h, Window as g } from "@tiagopedras/tenon";
+import { Fragment as _, jsx as v, jsxs as y } from "react/jsx-runtime";
+import { createRoot as b } from "react-dom/client";
 //#region src/Transcript.tsx
-function b({ text: t, className: i }) {
+function x({ text: t, className: i }) {
 	let [a, s] = r("idle"), c = n();
 	e(() => () => clearTimeout(c.current), []);
 	let l = (e) => {
 		s(e), clearTimeout(c.current), c.current = setTimeout(() => s("idle"), e === "done" ? 1500 : 4e3);
 	};
-	return /* @__PURE__ */ _(o, {
+	return /* @__PURE__ */ v(o, {
 		size: "sm",
 		variant: "secondary",
 		className: i,
@@ -20,7 +20,7 @@ function b({ text: t, className: i }) {
 		children: a === "done" ? "Copied" : a === "failed" ? "Copy failed" : "Copy"
 	});
 }
-function x({ tools: e }) {
+function S({ tools: e }) {
 	if (!e.length) return null;
 	let t = [];
 	e.forEach((e) => {
@@ -28,60 +28,60 @@ function x({ tools: e }) {
 		t.includes(n) || t.push(n);
 	});
 	let n = `${e.length} ${e.length === 1 ? "step" : "steps"} · ${t.slice(0, 4).join(", ")}${t.length > 4 ? "…" : ""}`;
-	return /* @__PURE__ */ _(s, {
+	return /* @__PURE__ */ v(s, {
 		className: "aic-trace",
 		summary: n,
-		children: /* @__PURE__ */ _("ol", {
+		children: /* @__PURE__ */ v("ol", {
 			className: "aic-timeline",
-			children: e.map((e, t) => /* @__PURE__ */ v("li", { children: [/* @__PURE__ */ _("span", { className: "aic-tick" }), e] }, t))
+			children: e.map((e, t) => /* @__PURE__ */ y("li", { children: [/* @__PURE__ */ v("span", { className: "aic-tick" }), e] }, t))
 		})
 	});
 }
-function S({ flow: e }) {
+function C({ flow: e }) {
 	let t = [], n = [], r = (e) => {
-		n.length && (t.push(/* @__PURE__ */ _("div", {
+		n.length && (t.push(/* @__PURE__ */ v("div", {
 			className: "aic-toolpills",
-			children: n.map((e, t) => /* @__PURE__ */ _(f, {
+			children: n.map((e, t) => /* @__PURE__ */ v(f, {
 				dot: !0,
 				children: e
 			}, t))
 		}, `p${e}`)), n = []);
 	};
 	return e.forEach((e, i) => {
-		e.kind === "tool" ? n.push(e.label) : (r(i), t.push(/* @__PURE__ */ _(u, {
+		e.kind === "tool" ? n.push(e.label) : (r(i), t.push(/* @__PURE__ */ v(u, {
 			className: "aic-reply",
 			children: e.text
 		}, `t${i}`)));
-	}), r(e.length), e.length ? /* @__PURE__ */ _("div", {
+	}), r(e.length), e.length ? /* @__PURE__ */ v("div", {
 		className: "aic-flow",
 		children: t
 	}) : null;
 }
-function C({ turn: e, index: t, showActs: n, inlineTools: r, onRetry: i, onEdit: s }) {
-	return /* @__PURE__ */ v("div", {
+function w({ turn: e, index: t, showActs: n, inlineTools: r, onRetry: i, onEdit: s }) {
+	return /* @__PURE__ */ y("div", {
 		className: "aic-turn",
 		children: [
-			/* @__PURE__ */ _("div", {
+			/* @__PURE__ */ v("div", {
 				className: "aic-mine",
-				children: /* @__PURE__ */ v("div", {
+				children: /* @__PURE__ */ y("div", {
 					className: "aic-minewrap",
-					children: [/* @__PURE__ */ _("div", {
+					children: [/* @__PURE__ */ v("div", {
 						className: "aic-bubble",
-						children: /* @__PURE__ */ _(u, {
+						children: /* @__PURE__ */ v(u, {
 							inline: !0,
 							children: e.ask
 						})
-					}), n && /* @__PURE__ */ v("div", {
+					}), n && /* @__PURE__ */ y("div", {
 						className: "aic-mineacts",
 						children: [
-							/* @__PURE__ */ _(b, { text: e.ask }),
-							/* @__PURE__ */ _(o, {
+							/* @__PURE__ */ v(x, { text: e.ask }),
+							/* @__PURE__ */ v(o, {
 								size: "sm",
 								variant: "secondary",
 								onClick: () => i(t),
 								children: "Retry"
 							}),
-							/* @__PURE__ */ _(o, {
+							/* @__PURE__ */ v(o, {
 								size: "sm",
 								variant: "secondary",
 								onClick: () => s(t),
@@ -91,18 +91,18 @@ function C({ turn: e, index: t, showActs: n, inlineTools: r, onRetry: i, onEdit:
 					})]
 				})
 			}),
-			r ? /* @__PURE__ */ _(S, { flow: e.flow }) : /* @__PURE__ */ _(x, { tools: e.tools }),
-			e.reply && (r ? /* @__PURE__ */ _("div", {
+			r ? /* @__PURE__ */ v(C, { flow: e.flow }) : /* @__PURE__ */ v(S, { tools: e.tools }),
+			e.reply && (r ? /* @__PURE__ */ v("div", {
 				className: "aic-acts",
-				children: /* @__PURE__ */ _(b, { text: e.reply })
-			}) : /* @__PURE__ */ v("div", {
+				children: /* @__PURE__ */ v(x, { text: e.reply })
+			}) : /* @__PURE__ */ y("div", {
 				className: "aic-reply",
-				children: [/* @__PURE__ */ _(u, { children: e.reply }), /* @__PURE__ */ _("div", {
+				children: [/* @__PURE__ */ v(u, { children: e.reply }), /* @__PURE__ */ v("div", {
 					className: "aic-acts",
-					children: /* @__PURE__ */ _(b, { text: e.reply })
+					children: /* @__PURE__ */ v(x, { text: e.reply })
 				})]
 			})),
-			e.error && /* @__PURE__ */ _(a, {
+			e.error && /* @__PURE__ */ v(a, {
 				tone: "error",
 				className: "aic-err",
 				title: e.error,
@@ -111,48 +111,48 @@ function C({ turn: e, index: t, showActs: n, inlineTools: r, onRetry: i, onEdit:
 		]
 	});
 }
-var w = (e) => e.scrollHeight - e.scrollTop - e.clientHeight < 80;
-function T({ view: e, controller: i, onEdit: s }) {
+var T = (e) => e.scrollHeight - e.scrollTop - e.clientHeight < 80;
+function E({ view: e, controller: i, onEdit: s }) {
 	let c = n(null), l = n(!0), [u, d] = r(!1), f = n(!1), p = () => {
 		let e = c.current;
-		e && (l.current = w(e), d(!l.current && e.scrollHeight > e.clientHeight));
+		e && (l.current = T(e), d(!l.current && e.scrollHeight > e.clientHeight));
 	};
 	t(() => {
 		let t = c.current;
 		t && ((e.busy || f.current) && l.current && (t.scrollTop = t.scrollHeight), f.current = e.busy, p());
 	});
 	let m;
-	return m = e.loadErr && !e.turns.length ? /* @__PURE__ */ _(a, {
+	return m = e.loadErr && !e.turns.length ? /* @__PURE__ */ v(a, {
 		tone: "error",
 		children: e.loadErr
-	}) : e.toobig ? /* @__PURE__ */ _("p", {
+	}) : e.toobig ? /* @__PURE__ */ v("p", {
 		className: "aic-none",
 		children: "That transcript is too large to replay here. Claude Desktop will open it in full."
-	}) : e.turns.length ? e.turns.map((t, n) => /* @__PURE__ */ _(C, {
+	}) : e.turns.length ? e.turns.map((t, n) => /* @__PURE__ */ v(w, {
 		turn: t,
 		index: n,
 		showActs: n === e.turns.length - 1 && !e.busy,
 		inlineTools: e.inlineTools,
 		onRetry: i.retry,
 		onEdit: (e) => s(i.editText(e))
-	}, n)) : e.loading ? /* @__PURE__ */ _("p", {
+	}, n)) : e.loading ? /* @__PURE__ */ v("p", {
 		className: "aic-none",
 		children: "…"
-	}) : /* @__PURE__ */ v("p", {
+	}) : /* @__PURE__ */ y("p", {
 		className: "aic-none",
 		children: [
 			"Nothing said yet. What it can see is everything under ",
-			/* @__PURE__ */ _("code", { children: e.home }),
+			/* @__PURE__ */ v("code", { children: e.home }),
 			"."
 		]
-	}), /* @__PURE__ */ v("div", {
+	}), /* @__PURE__ */ y("div", {
 		className: "aic-bodywrap",
-		children: [/* @__PURE__ */ _("div", {
+		children: [/* @__PURE__ */ v("div", {
 			className: "aic-body",
 			ref: c,
 			onScroll: p,
 			children: m
-		}), u && /* @__PURE__ */ _(o, {
+		}), u && /* @__PURE__ */ v(o, {
 			size: "sm",
 			variant: "secondary",
 			className: "aic-scrollpill",
@@ -166,10 +166,10 @@ function T({ view: e, controller: i, onEdit: s }) {
 }
 //#endregion
 //#region src/useChat.ts
-function E(e) {
+function D(e) {
 	return i(e.subscribe, e.getSnapshot, e.getSnapshot);
 }
-function ee(t) {
+function O(t) {
 	let [n, i] = r(() => Date.now());
 	return e(() => {
 		if (!t) return;
@@ -180,61 +180,61 @@ function ee(t) {
 }
 //#endregion
 //#region src/ChatWindow.tsx
-function te({ view: e }) {
-	let t = ee(e.status.kind === "running"), n = e.status, r = /* @__PURE__ */ _(p, {
+function ee({ view: e }) {
+	let t = O(e.status.kind === "running"), n = e.status, r = /* @__PURE__ */ v(p, {
 		size: "sm",
 		variant: e.thinkingGlyphs ? "glyph" : "ring",
 		className: e.thinkingGlyphs ? "aic-star aic-glyph" : "aic-star",
 		label: "Working"
 	});
-	return n.kind === "permission" ? /* @__PURE__ */ v("div", {
+	return n.kind === "permission" ? /* @__PURE__ */ y("div", {
 		className: "aic-status aic-live",
 		"aria-live": "polite",
-		children: [r, /* @__PURE__ */ _("span", {
+		children: [r, /* @__PURE__ */ v("span", {
 			className: "aic-doing",
 			children: "Waiting on your decision"
 		})]
-	}) : n.kind === "running" ? /* @__PURE__ */ v("div", {
+	}) : n.kind === "running" ? /* @__PURE__ */ y("div", {
 		className: "aic-status aic-live",
 		"aria-live": "polite",
 		children: [
 			r,
-			/* @__PURE__ */ _("span", {
+			/* @__PURE__ */ v("span", {
 				className: "aic-doing",
 				children: n.doing
 			}),
-			/* @__PURE__ */ v("em", {
+			/* @__PURE__ */ y("em", {
 				className: "aic-clock",
 				children: [Math.max(0, Math.round((t - n.started) / 1e3)), "s"]
 			})
 		]
-	}) : /* @__PURE__ */ _("div", {
+	}) : /* @__PURE__ */ v("div", {
 		className: "aic-status",
 		"aria-live": "polite",
 		children: n.text
 	});
 }
-function D({ view: e, controller: t }) {
+function k({ view: e, controller: t }) {
 	let n = e.permission;
-	return n ? /* @__PURE__ */ _(a, {
+	return n ? /* @__PURE__ */ v(a, {
 		tone: "warning",
 		className: "aic-permission",
 		title: n.title,
-		actions: /* @__PURE__ */ v(g, { children: [
-			/* @__PURE__ */ _(o, {
+		actions: /* @__PURE__ */ y(_, { children: [
+			/* @__PURE__ */ v(o, {
 				variant: "primary",
 				size: "sm",
 				onClick: () => t.answerPermission("allow"),
 				children: "Allow"
 			}),
-			n.canAlwaysAllow && /* @__PURE__ */ _(o, {
+			n.canAlwaysAllow && /* @__PURE__ */ v(o, {
 				variant: "ghost",
 				size: "sm",
 				title: "Allow this for the rest of the session, without asking again",
 				onClick: () => t.answerPermission("allow_always"),
 				children: "Always allow"
 			}),
-			/* @__PURE__ */ _(o, {
+			/* @__PURE__ */ v(o, {
 				variant: "ghost",
 				size: "sm",
 				onClick: () => t.answerPermission("deny"),
@@ -244,15 +244,15 @@ function D({ view: e, controller: t }) {
 		children: n.description || void 0
 	}) : null;
 }
-function O({ view: e, controller: t, draft: n, setDraft: r, input: i }) {
+function A({ view: e, controller: t, draft: n, setDraft: r, input: i }) {
 	let a = (e) => {
 		e?.preventDefault(), t.send(n) ? r("") : i.current?.focus();
 	};
-	return /* @__PURE__ */ v("form", {
+	return /* @__PURE__ */ y("form", {
 		className: "aic-foot",
 		autoComplete: "off",
 		onSubmit: a,
-		children: [/* @__PURE__ */ _(m, {
+		children: [/* @__PURE__ */ v(h, {
 			ref: i,
 			autoGrow: !0,
 			className: "aic-input",
@@ -265,13 +265,13 @@ function O({ view: e, controller: t, draft: n, setDraft: r, input: i }) {
 				e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && (e.preventDefault(), a());
 			},
 			autoFocus: !0
-		}), e.busy ? /* @__PURE__ */ _(o, {
+		}), e.busy ? /* @__PURE__ */ v(o, {
 			type: "button",
 			variant: "secondary",
 			className: "aic-stop",
 			onClick: t.stop,
 			children: "Stop"
-		}) : /* @__PURE__ */ _(o, {
+		}) : /* @__PURE__ */ v(o, {
 			type: "submit",
 			variant: "primary",
 			className: "aic-send",
@@ -279,21 +279,29 @@ function O({ view: e, controller: t, draft: n, setDraft: r, input: i }) {
 		})]
 	});
 }
-function k({ controller: t }) {
-	let i = E(t), [a, s] = r(""), u = n(null);
+function j({ controller: t }) {
+	let i = D(t), [a, s] = r(""), u = n(null);
 	e(() => {
 		i.openId && s(t.takeSeed());
 	}, [i.openId, t]);
-	let f = i.renamable ? /* @__PURE__ */ _(c, {
+	let f = i.renamable ? /* @__PURE__ */ v(c, {
 		value: i.title,
 		onCommit: t.rename
-	}) : i.title, p = i.ownerLabel || i.subtitle ? /* @__PURE__ */ v(g, { children: [i.ownerLabel && /* @__PURE__ */ _("span", {
+	}) : i.title, p = i.ownerLabel || i.subtitle ? /* @__PURE__ */ y(_, { children: [i.ownerLabel && /* @__PURE__ */ v("span", {
 		className: "aic-for",
 		children: i.ownerLabel
-	}), i.subtitle && /* @__PURE__ */ _("span", {
+	}), i.subtitle && /* @__PURE__ */ v("span", {
 		className: "aic-sub",
 		children: i.subtitle
-	})] }) : void 0, m = i.desktopHref ? /* @__PURE__ */ _(l, {
+	})] }) : void 0, h = i.writeSwitch ? /* @__PURE__ */ y("label", {
+		className: "aic-write",
+		title: "Lets Claude create and edit files inside its working folder, from your next message",
+		children: [/* @__PURE__ */ v(m, {
+			checked: i.canWrite,
+			onChange: t.setWrite,
+			"aria-label": "Can write"
+		}), /* @__PURE__ */ v("span", { children: "Can write" })]
+	}) : null, b = i.desktopHref ? /* @__PURE__ */ v(l, {
 		variant: "ghost",
 		size: "sm",
 		className: "aic-desktop",
@@ -302,33 +310,33 @@ function k({ controller: t }) {
 		rel: "noopener",
 		title: "Imports this session into Claude Desktop and carries it on there",
 		children: "Open in Claude"
-	}) : void 0, y = /* @__PURE__ */ v(g, { children: [/* @__PURE__ */ _(D, {
+	}) : null, x = h || b ? /* @__PURE__ */ y(_, { children: [h, b] }) : void 0, S = /* @__PURE__ */ y(_, { children: [/* @__PURE__ */ v(k, {
 		view: i,
 		controller: t
-	}), /* @__PURE__ */ _(T, {
+	}), /* @__PURE__ */ v(E, {
 		view: i,
 		controller: t,
 		onEdit: (e) => {
 			s(e), u.current?.focus();
 		}
-	})] }), b = /* @__PURE__ */ v(g, { children: [/* @__PURE__ */ _(te, { view: i }), /* @__PURE__ */ _(O, {
+	})] }), C = /* @__PURE__ */ y(_, { children: [/* @__PURE__ */ v(ee, { view: i }), /* @__PURE__ */ v(A, {
 		view: i,
 		controller: t,
 		draft: a,
 		setDraft: s,
 		input: u
-	})] }), x = i.presentation;
-	if (i.dockable && x.dock !== "none") {
-		let e = x.dock === "minimised", n = (e) => {
+	})] }), w = i.presentation;
+	if (i.dockable && w.dock !== "none") {
+		let e = w.dock === "minimised", n = (e) => {
 			t.pressed();
 			let n = e.target;
 			n.closest(".tenon-window__head") && !n.closest("button,a,input,textarea,[contenteditable=\"true\"]") && e.stopPropagation();
-		}, r = i.status.kind === "permission" ? "Needs you" : i.status.kind === "running" ? i.status.doing : i.runState || "", a = e ? /* @__PURE__ */ _("span", {
+		}, r = i.status.kind === "permission" ? "Needs you" : i.status.kind === "running" ? i.status.doing : i.runState || "", a = e ? /* @__PURE__ */ v("span", {
 			className: "aic-dockstate",
 			children: r
-		}) : /* @__PURE__ */ v(g, { children: [
-			m,
-			/* @__PURE__ */ _(o, {
+		}) : /* @__PURE__ */ y(_, { children: [
+			x,
+			/* @__PURE__ */ v(o, {
 				variant: "ghost",
 				size: "sm",
 				iconOnly: !0,
@@ -338,7 +346,7 @@ function k({ controller: t }) {
 				onClick: t.minimise,
 				children: "–"
 			}),
-			/* @__PURE__ */ _(o, {
+			/* @__PURE__ */ v(o, {
 				variant: "ghost",
 				size: "sm",
 				iconOnly: !0,
@@ -349,28 +357,28 @@ function k({ controller: t }) {
 				children: "⤢"
 			})
 		] });
-		return /* @__PURE__ */ _(h, {
+		return /* @__PURE__ */ v(g, {
 			open: i.open,
 			onClose: t.closeChat,
 			closeButton: !i.pinned,
 			title: e ? i.title : f,
 			subtitle: e ? void 0 : p,
 			headEnd: a,
-			footer: e ? void 0 : b,
+			footer: e ? void 0 : C,
 			bare: !0,
 			className: "aic-box aic-docked " + (e ? "aic-minimised" : "aic-anchored") + (i.pinned ? " aic-pinned" : ""),
 			"data-state": i.runState || void 0,
-			rect: x.dockRect,
-			zIndex: x.zIndex,
-			active: x.active && !e,
+			rect: w.dockRect,
+			zIndex: w.zIndex,
+			active: w.active && !e,
 			onPointerDownCapture: n,
 			onClick: e ? (e) => {
 				e.target.closest("button,a") || t.anchor();
 			} : void 0,
-			children: e ? null : y
+			children: e ? null : S
 		});
 	}
-	let S = i.dockable ? /* @__PURE__ */ v(g, { children: [m, /* @__PURE__ */ _(o, {
+	let T = i.dockable ? /* @__PURE__ */ y(_, { children: [x, /* @__PURE__ */ v(o, {
 		variant: "ghost",
 		size: "sm",
 		iconOnly: !0,
@@ -379,42 +387,42 @@ function k({ controller: t }) {
 		title: "Minimise",
 		onClick: t.minimise,
 		children: "–"
-	})] }) : m;
-	return i.windowed ? /* @__PURE__ */ _(h, {
+	})] }) : x;
+	return i.windowed ? /* @__PURE__ */ v(g, {
 		open: i.open,
 		onClose: t.closeChat,
 		title: f,
 		subtitle: p,
-		headEnd: S,
-		footer: b,
+		headEnd: T,
+		footer: C,
 		bare: !0,
 		className: "aic-box",
 		"data-state": i.runState || void 0,
-		rect: x.rect,
-		growFrom: x.growFrom,
-		zIndex: x.zIndex,
-		active: x.active,
-		peeked: x.peeked,
+		rect: w.rect,
+		growFrom: w.growFrom,
+		zIndex: w.zIndex,
+		active: w.active,
+		peeked: w.peeked,
 		onRectLive: t.rectLive,
 		onRectChange: t.rectChange,
 		onFocus: t.pressed,
-		children: y
-	}) : /* @__PURE__ */ _(d, {
+		children: S
+	}) : /* @__PURE__ */ v(d, {
 		open: i.open,
 		onClose: t.closeChat,
 		title: f,
 		subtitle: p,
-		headEnd: S,
-		footer: b,
+		headEnd: T,
+		footer: C,
 		size: "lg",
 		bare: !0,
 		className: "aic-box aic-modal",
-		children: y
+		children: S
 	});
 }
 //#endregion
 //#region src/format.ts
-var A = {
+var M = {
 	Read: "file_path",
 	Edit: "file_path",
 	Write: "file_path",
@@ -426,11 +434,11 @@ var A = {
 	Skill: "skill",
 	Task: "description"
 };
-function j(e, t, n) {
-	let r = t || {}, i = A[e], a = i && r[i] ? String(r[i]) : "";
+function N(e, t, n) {
+	let r = t || {}, i = M[e], a = i && r[i] ? String(r[i]) : "";
 	return a ||= Object.values(r).find((e) => typeof e == "string") || "", n && a.indexOf(n + "/") === 0 && (a = a.slice(n.length + 1)), a = a.replace(/\s+/g, " ").trim(), a.length > 70 && (a = a.slice(0, 69) + "…"), a ? e + " " + a : e;
 }
-var M = {
+var P = {
 	starting: "Starting up",
 	thinking: "Thinking it through",
 	writing: "Writing the answer",
@@ -446,15 +454,15 @@ var M = {
 	WebSearch: "Searching the web",
 	done: "Finished"
 };
-function N(e) {
-	return M[e] || (e ? "Using " + e : "Working");
+function F(e) {
+	return P[e] || (e ? "Using " + e : "Working");
 }
-function P(e) {
+function te(e) {
 	return e < .01 ? "under 1¢" : "$" + e.toFixed(2);
 }
-function F(e) {
+function ne(e) {
 	let t = Math.max(1, Math.round((e.ms || Date.now() - e.started) / 1e3)), n = [e.status === "done" ? "done" : "stopped", t + "s"];
-	return e.cost && n.push(P(e.cost)), n.join(" · ");
+	return e.cost && n.push(te(e.cost)), n.join(" · ");
 }
 function I(e) {
 	let t = String(e).replace(/\s+/g, " ").trim(), n = /[.?!]\s/.exec(t);
@@ -562,24 +570,24 @@ var H = 16, U = 12, W = 300, G = 52, K = 400, q = 560, J = [], Y = /* @__PURE__ 
 function Z() {
 	Y.forEach((e) => e());
 }
-var ne = Z;
-function re(e) {
+var re = Z;
+function ie(e) {
 	return Y.add(e), () => {
 		Y.delete(e);
 	};
 }
-function ie(e) {
+function ae(e) {
 	J.includes(e) || J.push(e), !X && typeof window < "u" && (X = !0, window.addEventListener("resize", Z)), Z();
 }
 function Q(e) {
 	let t = J.indexOf(e);
 	t < 0 || (J.splice(t, 1), Z());
 }
-function ae() {
+function oe() {
 	return [...J.filter((e) => e.pinned?.()), ...J.filter((e) => !e.pinned?.())];
 }
-function oe(e) {
-	let t = ae(), n = t.indexOf(e);
+function se(e) {
+	let t = oe(), n = t.indexOf(e);
 	if (n < 0) return null;
 	let r = typeof window < "u" ? window.innerWidth : 1280, i = typeof window < "u" ? window.innerHeight : 800, a = r - H;
 	for (let e = 0; e < n; e++) a -= (t[e].dockState() === "anchored" ? K : W) + U;
@@ -593,6 +601,9 @@ function oe(e) {
 }
 //#endregion
 //#region src/controller.ts
+function ce(e) {
+	return e ? "(Writing is now switched on for this conversation: you can create and edit files inside the working directory, and nothing outside it. Anything said earlier about not being able to write no longer holds.)" : "(Writing is now switched off again for this conversation: you can read, but not create or edit files.)";
+}
 var $ = class {
 	opts;
 	transport;
@@ -629,7 +640,7 @@ var $ = class {
 			value: "1",
 			...e.guardHeader || {}
 		};
-		this.transport = Object.assign(V(t, n), e.transport || {}), this.windowed = !!e.windowed, this.defaultMode = e.mode === "work" ? "work" : "ask", this.dockable = !!e.dockable, this.pin = this.dockable && !!e.pinned, this.dockable && (this.unDock = re(() => {
+		this.transport = Object.assign(V(t, n), e.transport || {}), this.windowed = !!e.windowed, this.defaultMode = e.mode === "work" || e.mode === "write" ? e.mode : "ask", this.dockable = !!e.dockable, this.pin = this.dockable && !!e.pinned, this.dockable && (this.unDock = ie(() => {
 			this.dock !== "none" && this.emit();
 		}));
 	}
@@ -692,6 +703,7 @@ var $ = class {
 			session: n || "",
 			seed: r || "",
 			mode: this.defaultMode,
+			modeNote: "",
 			preface: typeof i == "function" ? i : null,
 			turns: null,
 			loading: !1,
@@ -725,9 +737,9 @@ var $ = class {
 			let t = await this.transport.transcript(e, r);
 			if (!this.current || this.current.session !== e) return;
 			this.current.turns = t.toobig ? [] : t.turns.map((e) => {
-				let t = (e.tools || []).map((e) => j(e.name, e.input, r)), n = Array.isArray(e.parts) && e.parts.length ? e.parts.map((e) => e.type === "tool" ? {
+				let t = (e.tools || []).map((e) => N(e.name, e.input, r)), n = Array.isArray(e.parts) && e.parts.length ? e.parts.map((e) => e.type === "tool" ? {
 					kind: "tool",
-					label: j(e.name, e.input, r)
+					label: N(e.name, e.input, r)
 				} : {
 					kind: "text",
 					text: e.text || ""
@@ -792,7 +804,7 @@ var $ = class {
 				}), e.status = "writing";
 			} else if (n.type === "thinking") e.status = "thinking";
 			else if (n.type === "tool_use") {
-				let r = j(n.name, n.input, e.cwd);
+				let r = N(n.name, n.input, e.cwd);
 				t.tools.push(r), t.flow.push({
 					kind: "tool",
 					label: r
@@ -857,7 +869,7 @@ var $ = class {
 		let r = this.currentRun();
 		if (r && r.running) return !1;
 		let i = t.preface && !t.session ? t.preface(n) : n;
-		return t.preface &&= null, this.opts.onSend?.({
+		return t.preface &&= null, t.modeNote &&= (t.session && (i = t.modeNote + "\n\n" + i), ""), this.opts.onSend?.({
 			owner: t.owner,
 			key: t.key,
 			session: t.session || "",
@@ -906,6 +918,13 @@ var $ = class {
 		let n = t.permission.requestId;
 		t.permission = null, this.emit(), this.transport.answerPermission && Promise.resolve(this.transport.answerPermission(n, e)).catch(() => {});
 	};
+	writeAllowed = () => !!this.opts.writeSwitch && !!this.claudeStatus?.work;
+	setWrite = (e) => {
+		let t = this.current;
+		if (!t || !this.writeAllowed()) return;
+		let n = e ? "write" : this.defaultMode === "write" ? "ask" : this.defaultMode;
+		t.mode !== n && (t.mode = n, t.modeNote = t.modeNote ? "" : (this.opts.writeNote || ce)(e), this.emit());
+	};
 	setHeader = (e) => {
 		this.header = e || null, this.emit();
 	};
@@ -946,7 +965,7 @@ var $ = class {
 	setDock(e) {
 		if (!this.dockable || !this.current || this.dock === e) return;
 		let t = this.dock;
-		this.dock = e, e === "none" ? (Q(this), this.emit()) : t === "none" ? ie(this) : ne();
+		this.dock = e, e === "none" ? (Q(this), this.emit()) : t === "none" ? ae(this) : re();
 	}
 	leaveDock() {
 		this.dock !== "none" && (this.dock = "none", Q(this));
@@ -973,11 +992,11 @@ var $ = class {
 		let e = this.current, t = this.currentRun(), n = e ? this.sessionsFor(e.key).find((t) => t.id === e.session) : void 0, r = n && n.title || t && t.title || "New chat", i = !!(t && t.running), a;
 		return a = e ? t && t.permission ? { kind: "permission" } : t && t.running ? {
 			kind: "running",
-			doing: N(t.status),
+			doing: F(t.status),
 			started: t.started
 		} : t ? {
 			kind: "text",
-			text: (t.mode === "work" ? "Claude, working in " : "Claude, reading in ") + (t.home || "") + " · " + F(t)
+			text: (t.mode === "work" ? "Claude, working in " : t.mode === "write" ? "Claude, writing in " : "Claude, reading in ") + (t.home || "") + " · " + ne(t)
 		} : e.loading ? {
 			kind: "text",
 			text: "Reading the transcript…"
@@ -986,7 +1005,7 @@ var $ = class {
 			text: "Earlier conversation · " + (n && R(n.updated) || "")
 		} : {
 			kind: "text",
-			text: "New conversation in " + this.home() + " · " + (e.mode === "work" ? "can write" : "reads only")
+			text: "New conversation in " + this.home() + " · " + (e.mode === "work" ? "can write" : e.mode === "write" ? "can write inside it" : "reads only")
 		} : {
 			kind: "text",
 			text: ""
@@ -1019,6 +1038,8 @@ var $ = class {
 			renamable: typeof this.opts.onRename == "function",
 			dockable: this.dockable,
 			pinned: this.pin,
+			writeSwitch: !!e && this.writeAllowed(),
+			canWrite: !!e && e.mode === "write",
 			presentation: {
 				rect: this.rect,
 				growFrom: this.growOrigin,
@@ -1026,16 +1047,16 @@ var $ = class {
 				active: this.active,
 				peeked: this.peeked,
 				dock: this.dock,
-				dockRect: this.dock === "none" ? null : oe(this)
+				dockRect: this.dock === "none" ? null : se(this)
 			}
 		};
 	}
 };
 //#endregion
 //#region src/create.tsx
-function se(e = {}) {
+function le(e = {}) {
 	let t = new $(e), n = null, r = null, i = () => {
-		r || (n = document.createElement("div"), n.setAttribute("data-ai-chat", ""), document.body.appendChild(n), r = y(n), r.render(/* @__PURE__ */ _(k, { controller: t })));
+		r || (n = document.createElement("div"), n.setAttribute("data-ai-chat", ""), document.body.appendChild(n), r = b(n), r.render(/* @__PURE__ */ v(j, { controller: t })));
 	};
 	return {
 		loadStatus: t.loadStatus,
@@ -1064,6 +1085,8 @@ function se(e = {}) {
 		anchor: t.anchor,
 		expand: t.expand,
 		dockState: t.dockState,
+		setWrite: t.setWrite,
+		canWrite: () => t.getSnapshot().canWrite,
 		running: t.running,
 		session: () => t.getSnapshot().session,
 		destroy() {
@@ -1072,4 +1095,4 @@ function se(e = {}) {
 	};
 }
 //#endregion
-export { $ as ChatController, k as ChatWindow, B as DEFAULT_ENDPOINTS, I as chatTitle, se as create, z as desktopHref, V as makeDefaultTransport, j as toolLabel, E as useChat, R as whenLabel };
+export { $ as ChatController, j as ChatWindow, B as DEFAULT_ENDPOINTS, I as chatTitle, le as create, z as desktopHref, V as makeDefaultTransport, N as toolLabel, D as useChat, R as whenLabel };

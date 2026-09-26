@@ -24,6 +24,10 @@ export declare function create(opts?: ChatOptions): {
     anchor: () => void;
     expand: () => void;
     dockState: () => import("./dock").DockState;
+    /** Flips the open conversation between reading only and write mode, from its next message. A no-op unless `writeSwitch` was asked for and the helper allows writing. */
+    setWrite: (on: boolean) => void;
+    /** Whether the open conversation is in write mode. */
+    canWrite: () => boolean;
     running: () => boolean;
     /** The session the open conversation is on, or '' for a new one not yet sent or nothing open. */
     session: () => string;

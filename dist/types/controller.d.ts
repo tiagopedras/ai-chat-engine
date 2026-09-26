@@ -40,6 +40,10 @@ export interface ChatView {
     dockable: boolean;
     /** Kept in the dock row for good, so it has no close button. */
     pinned: boolean;
+    /** Whether to draw the "Can write" switch: the host asked for it and the helper allows writing. */
+    writeSwitch: boolean;
+    /** Where the switch sits: the open conversation is in write mode. */
+    canWrite: boolean;
     presentation: {
         rect: Rect | null;
         growFrom: Origin | null;
@@ -113,6 +117,8 @@ export declare class ChatController {
     editText: (i: number) => string;
     takeSeed: () => string;
     answerPermission: (decision: PermissionDecision) => void;
+    writeAllowed: () => boolean;
+    setWrite: (on: boolean) => void;
     setHeader: (spec: Header | null) => void;
     rename: (title: string) => void;
     /** Call before openNew()/openSession(): the window grows out of this rect on the open that follows. Not sticky beyond that one open. */

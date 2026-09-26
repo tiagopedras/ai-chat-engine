@@ -122,7 +122,7 @@ class ChatEndpoints:
         if len(prompt) > MAX_PROMPT:
             return 413, {"error": "prompt too long"}
 
-        mode = "work" if payload.get("mode") == "work" else "ask"
+        mode = payload.get("mode") if payload.get("mode") in ("write", "work") else "ask"
         session = str(payload.get("session") or "")
         session = session if SESSION_ID.match(session) else ""
         owner = str(payload.get("owner") or payload.get("chat") or "")
@@ -133,8 +133,8 @@ class ChatEndpoints:
             gen = self.engine.run(prompt, mode, session, owner, title)
         except RunLimitError as err:
             return 429, {"error": str(err)}
-        except PermissionError:
-            return 403, {"error": 'work mode is off'}
+        except PermissionError as err:
+            return 403, {"error": str(err)}
         except RuntimeError as err:
             return 501, {"error": str(err)}
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
-import { Alert, Button, EditableText, LinkButton, Modal, Spinner, Textarea, Window } from '@tiagopedras/tenon';
+import { Alert, Button, EditableText, LinkButton, Modal, Spinner, Switch, Textarea, Window } from '@tiagopedras/tenon';
 import type { ChatController, ChatView } from './controller';
 import { Transcript } from './Transcript';
 import { useChat, useNow } from './useChat';
@@ -129,7 +129,14 @@ export function ChatWindow({ controller }: { controller: ChatController }) {
       {view.subtitle && <span className="aic-sub">{view.subtitle}</span>}
     </>
   ) : undefined;
-  const headEnd = view.desktopHref ? (
+  /* Takes effect from the next message: the mode is read on every send. */
+  const writeSwitch = view.writeSwitch ? (
+    <label className="aic-write" title="Lets Claude create and edit files inside its working folder, from your next message">
+      <Switch checked={view.canWrite} onChange={controller.setWrite} aria-label="Can write" />
+      <span>Can write</span>
+    </label>
+  ) : null;
+  const desktop = view.desktopHref ? (
     <LinkButton
       variant="ghost"
       size="sm"
@@ -141,7 +148,8 @@ export function ChatWindow({ controller }: { controller: ChatController }) {
     >
       Open in Claude
     </LinkButton>
-  ) : undefined;
+  ) : null;
+  const headEnd = (writeSwitch || desktop) ? <>{writeSwitch}{desktop}</> : undefined;
 
   const body = (
     <>

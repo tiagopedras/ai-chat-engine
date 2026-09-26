@@ -2,6 +2,9 @@
    the controller and the transport work on these, and the components read
    them. */
 
+/** ask reads only; write may edit inside its working directory; work does anything. */
+export type ChatMode = 'ask' | 'write' | 'work';
+
 export interface ChatStatus {
   available: boolean;
   work?: boolean;
@@ -17,7 +20,7 @@ export interface SessionRow {
   title?: string;
   updated?: string;
   cwd?: string;
-  mode?: 'ask' | 'work';
+  mode?: ChatMode;
 }
 
 export type SessionsIndex = Record<string, SessionRow[]>;
@@ -60,7 +63,7 @@ export interface TranscriptTurn {
 
 export interface RunPayload {
   prompt: string;
-  mode: 'ask' | 'work';
+  mode: ChatMode;
   session: string;
   owner: string;
   title: string;
@@ -114,7 +117,7 @@ export interface ChatOptions {
   onSessionsChanged?: (index: SessionsIndex) => void;
   onStatusChanged?: (status: ChatStatus | null) => void;
   /** Fired the instant a message leaves the box, before the run starts. `session` is empty on a new conversation's first message. */
-  onSend?: (spec: { owner: string; key: string; session: string; ask: string; prompt: string; mode: 'ask' | 'work' }) => void;
+  onSend?: (spec: { owner: string; key: string; session: string; ask: string; prompt: string; mode: ChatMode }) => void;
   placeholder?: string;
   /** Off for a host that already is a Claude client, where the link would point back at itself. */
   desktopLink?: boolean;
@@ -136,5 +139,13 @@ export interface ChatOptions {
   onRename?: (title: string) => void;
   ownerLabel?: (owner: string) => string;
   /** What kind of conversation this host opens. */
-  mode?: 'ask' | 'work';
+  mode?: ChatMode;
+  /** A "Can write" switch in the head, flipping the open conversation between
+      reading only and `write` mode from its next message. Drawn only while the
+      helper's status says `work` is on. Off by default. */
+  writeSwitch?: boolean;
+  /** The line put in front of the first message after the switch moves, so
+      Claude hears that what it said earlier about being able to write no
+      longer holds. Given whether writing is now on. The engine has its own. */
+  writeNote?: (on: boolean) => string;
 }

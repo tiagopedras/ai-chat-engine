@@ -136,7 +136,7 @@ export interface ChatSessionMeta {
   title: string
   started: string
   updated: string
-  mode: 'ask' | 'work'
+  mode: 'ask' | 'write' | 'work'
   cwd: string
 }
 
@@ -166,7 +166,7 @@ export interface ChatStatus {
 /** What the chat window's `run` call sends — see README.md. */
 export interface ChatRunPayload {
   prompt: string
-  mode: 'ask' | 'work'
+  mode: 'ask' | 'write' | 'work'
   /** An existing chat session id to resume, or '' to start one. */
   session: string
   /** The owner key a new session should be filed under. */
@@ -218,7 +218,7 @@ export interface CardStore {
     object. */
 export interface ChatStore {
   chats(): Record<string, ChatSessionMeta[]>
-  recordChat(owner: string, sessionId: string, title: string, mode: 'ask' | 'work', cwd: string): void
+  recordChat(owner: string, sessionId: string, title: string, mode: 'ask' | 'write' | 'work', cwd: string): void
   touchChat(owner: string, sessionId: string): void
   forgetChat(owner: string, sessionId: string): void
 }

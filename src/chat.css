@@ -144,3 +144,14 @@
   font-size: var(--tenon-text-body-sm-size);
   color: var(--tenon-text-faint);
 }
+
+/* The write switch in the head: the switch, then what it does. */
+.aic-write {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tenon-dimension-100);
+  font-size: var(--tenon-text-body-sm-size);
+  color: var(--tenon-text-subtle);
+  cursor: pointer;
+  white-space: nowrap;
+}

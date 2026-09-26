@@ -16,7 +16,7 @@ import { unwrapSlashCommand } from './slashCommand.js'
  * A chat is deliberately not a card: it is read-only, it never goes on a
  * canvas, and it is filed under an owner key rather than sitting on its
  * own. `mode` is always `ask` for that reason — there is no config yet to
- * turn `work` on, so asking for it is refused exactly the way `engine.py`'s
+ * turn `write` or `work` on, so asking for either is refused exactly the way `engine.py`'s
  * `work` mode refuses it when a host's own config hasn't opted in.
  *
  * Ported out of `ai_canvas`'s `ChatEngine`. What changed: `resolveCwd` no
@@ -118,8 +118,8 @@ export class ChatEngine {
 
   private async execute(runId: string, payload: ChatRunPayload, controller: AbortController): Promise<void> {
     try {
-      if (payload.mode === 'work') {
-        this.emitLine(runId, { type: 'board_error', text: 'work mode is off' })
+      if (payload.mode !== 'ask') {
+        this.emitLine(runId, { type: 'board_error', text: `${payload.mode} mode is off` })
         return
       }
       const cwd = this.resolveCwd(payload)

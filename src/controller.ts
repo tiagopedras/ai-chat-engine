@@ -3,7 +3,7 @@ import { DEFAULT_ENDPOINTS, makeDefaultTransport } from './transport';
 import { dockJoin, dockLeave, dockNotify, dockRectFor, dockSubscribe } from './dock';
 import type { DockState } from './dock';
 import type {
-  ChatOptions, ChatStatus, Header, Origin, PermissionDecision, PermissionRequest, Rect,
+  ChatMode, ChatOptions, ChatStatus, Header, Origin, PermissionDecision, PermissionRequest, Rect,
   SessionRow, SessionsIndex, Transport, Turn,
 } from './types';
 
@@ -29,12 +29,18 @@ import type {
 
 const MOTION_MS = 260;
 
+function defaultWriteNote(on: boolean): string {
+  return on
+    ? '(Writing is now switched on for this conversation: you can create and edit files inside the working directory, and nothing outside it. Anything said earlier about not being able to write no longer holds.)'
+    : '(Writing is now switched off again for this conversation: you can read, but not create or edit files.)';
+}
+
 interface Run {
   owner: string;
   key: string;
   session: string;
   title: string;
-  mode: 'ask' | 'work';
+  mode: ChatMode;
   running: boolean;
   status: string;
   cwd: string;
@@ -53,7 +59,10 @@ interface Current {
   key: string;
   session: string;
   seed: string;
-  mode: 'ask' | 'work';
+  mode: ChatMode;
+  /** Set when the write switch moves, and put in front of the next message
+      only, so Claude hears the change once. */
+  modeNote: string;
   /** Wraps the first message only, then clears. */
   preface: ((ask: string) => string) | null;
   turns: Turn[] | null;
@@ -98,6 +107,10 @@ export interface ChatView {
   dockable: boolean;
   /** Kept in the dock row for good, so it has no close button. */
   pinned: boolean;
+  /** Whether to draw the "Can write" switch: the host asked for it and the helper allows writing. */
+  writeSwitch: boolean;
+  /** Where the switch sits: the open conversation is in write mode. */
+  canWrite: boolean;
   presentation: {
     rect: Rect | null; growFrom: Origin | null; zIndex: number | undefined; active: boolean; peeked: boolean;
     /** Docked to the bottom edge as a bar or a panel, or 'none' for the ordinary modal or window. */
@@ -111,7 +124,7 @@ export class ChatController {
   private readonly opts: ChatOptions;
   private readonly transport: Transport;
   private readonly windowed: boolean;
-  private readonly defaultMode: 'ask' | 'work';
+  private readonly defaultMode: ChatMode;
 
   private claudeStatus: ChatStatus | null = null;
   private chatsIndex: SessionsIndex = {};
@@ -142,7 +155,7 @@ export class ChatController {
     const guard = { name: 'X-Board', value: '1', ...(opts.guardHeader || {}) };
     this.transport = Object.assign(makeDefaultTransport(endpoints, guard), opts.transport || {});
     this.windowed = !!opts.windowed;
-    this.defaultMode = opts.mode === 'work' ? 'work' : 'ask';
+    this.defaultMode = opts.mode === 'work' || opts.mode === 'write' ? opts.mode : 'ask';
     this.dockable = !!opts.dockable;
     this.pin = this.dockable && !!opts.pinned;
     /* Another chat joining or leaving the row moves this one along it. */
@@ -241,7 +254,7 @@ export class ChatController {
     if (this.closeTimer) { clearTimeout(this.closeTimer); this.closeTimer = null; }
     this.closing = false;
     this.current = {
-      owner, key, session: sessionId || '', seed: seed || '', mode: this.defaultMode,
+      owner, key, session: sessionId || '', seed: seed || '', mode: this.defaultMode, modeNote: '',
       preface: typeof preface === 'function' ? preface : null,
       turns: null, loading: false, run: this.runFor(sessionId),
     };
@@ -416,7 +429,7 @@ export class ChatController {
   }
 
   private async startRun(spec: {
-    owner: string; key: string; session: string; ask: string; prompt?: string; title: string; mode: 'ask' | 'work'; turns: Turn[];
+    owner: string; key: string; session: string; ask: string; prompt?: string; title: string; mode: ChatMode; turns: Turn[];
   }): Promise<void> {
     const run: Run = this.runs['n' + ++this.runCounter] = {
       owner: spec.owner, key: spec.key, session: spec.session || '',
@@ -463,8 +476,15 @@ export class ChatController {
        document without pasting the document into the box to scroll past.
        Consumed on use, because by the second message Claude has the
        document. */
-    const prompt = c.preface && !c.session ? c.preface(ask) : ask;
+    let prompt = c.preface && !c.session ? c.preface(ask) : ask;
     if (c.preface) c.preface = null;
+    /* The switch moved since the last message. Only worth saying on a
+       conversation that already has turns: a new one starts in whatever
+       mode it is in and has nothing earlier to contradict. */
+    if (c.modeNote) {
+      if (c.session) prompt = c.modeNote + '\n\n' + prompt;
+      c.modeNote = '';
+    }
     this.opts.onSend?.({ owner: c.owner, key: c.key, session: c.session || '', ask, prompt, mode: c.mode || 'ask' });
     void this.startRun({
       owner: c.owner, key: c.key, session: c.session, ask, prompt,
@@ -533,6 +553,26 @@ export class ChatController {
     if (this.transport.answerPermission) {
       Promise.resolve(this.transport.answerPermission(requestId, decision)).catch(() => {});
     }
+  };
+
+  /* ---- the write switch ----
+     The mode is read again on every send, and every send is a fresh
+     `claude -p --resume` run, so flipping it here takes effect from the next
+     message without restarting the conversation. What the run may touch is
+     the engine's business (write mode holds edits to the working
+     directory); this only says which mode to ask for. */
+
+  writeAllowed = (): boolean => !!this.opts.writeSwitch && !!this.claudeStatus?.work;
+
+  setWrite = (on: boolean): void => {
+    const c = this.current;
+    if (!c || !this.writeAllowed()) return;
+    const next: ChatMode = on ? 'write' : (this.defaultMode === 'write' ? 'ask' : this.defaultMode);
+    if (c.mode === next) return;
+    c.mode = next;
+    /* Switched back before anything was sent: nothing to tell Claude. */
+    c.modeNote = c.modeNote ? '' : (this.opts.writeNote || defaultWriteNote)(on);
+    this.emit();
   };
 
   /* ---- the header a host names itself ----
@@ -636,10 +676,10 @@ export class ChatController {
     else if (run && run.permission) status = { kind: 'permission' };
     else if (run && run.running) status = { kind: 'running', doing: runDoing(run.status), started: run.started };
     else if (run) {
-      status = { kind: 'text', text: (run.mode === 'work' ? 'Claude, working in ' : 'Claude, reading in ') + (run.home || '') + ' · ' + runDoneLabel(run) };
+      status = { kind: 'text', text: (run.mode === 'work' ? 'Claude, working in ' : run.mode === 'write' ? 'Claude, writing in ' : 'Claude, reading in ') + (run.home || '') + ' · ' + runDoneLabel(run) };
     } else if (c.loading) status = { kind: 'text', text: 'Reading the transcript…' };
     else if (c.session) status = { kind: 'text', text: 'Earlier conversation · ' + ((row && whenLabel(row.updated)) || '') };
-    else status = { kind: 'text', text: 'New conversation in ' + this.home() + ' · ' + (c.mode === 'work' ? 'can write' : 'reads only') };
+    else status = { kind: 'text', text: 'New conversation in ' + this.home() + ' · ' + (c.mode === 'work' ? 'can write' : c.mode === 'write' ? 'can write inside it' : 'reads only') };
 
     return {
       open: !!c && !this.closing,
@@ -666,6 +706,8 @@ export class ChatController {
       renamable: typeof this.opts.onRename === 'function',
       dockable: this.dockable,
       pinned: this.pin,
+      writeSwitch: !!c && this.writeAllowed(),
+      canWrite: !!c && c.mode === 'write',
       presentation: {
         rect: this.rect, growFrom: this.growOrigin, zIndex: this.zIndex, active: this.active, peeked: this.peeked,
         dock: this.dock, dockRect: this.dock === 'none' ? null : dockRectFor(this),

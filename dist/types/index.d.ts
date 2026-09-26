@@ -7,4 +7,4 @@ export { create } from './create';
 export type { ChatInstance } from './create';
 export { makeDefaultTransport, DEFAULT_ENDPOINTS } from './transport';
 export { chatTitle, toolLabel, whenLabel, desktopHref } from './format';
-export type { ChatOptions, ChatStatus, Header, Origin, PermissionDecision, PermissionRequest, Rect, RunPayload, SessionRow, SessionsIndex, Transport, TranscriptTurn, Turn, FlowSegment, Endpoints, } from './types';
+export type { ChatMode, ChatOptions, ChatStatus, Header, Origin, PermissionDecision, PermissionRequest, Rect, RunPayload, SessionRow, SessionsIndex, Transport, TranscriptTurn, Turn, FlowSegment, Endpoints, } from './types';
