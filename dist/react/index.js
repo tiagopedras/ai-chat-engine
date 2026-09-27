@@ -1005,7 +1005,7 @@ var $ = class {
 			text: "Earlier conversation · " + (n && R(n.updated) || "")
 		} : {
 			kind: "text",
-			text: "New conversation in " + this.home() + " · " + (e.mode === "work" ? "can write" : e.mode === "write" ? "can write inside it" : "reads only")
+			text: "New conversation in " + this.home() + " · " + (e.mode === "work" ? "can write" : e.mode === "write" ? "can edit files" : "reads only")
 		} : {
 			kind: "text",
 			text: ""

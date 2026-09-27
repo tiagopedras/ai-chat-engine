@@ -253,7 +253,7 @@ await t.until(`!ws.isOpen()`, 3000);
 await t.evaluate(`ws.openNew('t5', 'k5', '')`);
 ok('a new conversation opens reading only', await t.until(`ws.canWrite() === false && /reads only/.test(document.querySelector('.aic-status').textContent)`));
 await t.evaluate(`ws.setWrite(true)`);
-ok('  switched on, the status line says so', await t.until(`/can write inside it/.test(document.querySelector('.aic-status').textContent)`));
+ok('  switched on, the status line says so', await t.until(`/can edit files/.test(document.querySelector('.aic-status').textContent)`));
 await t.evaluate(`document.querySelector('.aic-input').focus()`);
 await t.type('make a file');
 await t.key('Enter');

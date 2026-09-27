@@ -679,7 +679,7 @@ export class ChatController {
       status = { kind: 'text', text: (run.mode === 'work' ? 'Claude, working in ' : run.mode === 'write' ? 'Claude, writing in ' : 'Claude, reading in ') + (run.home || '') + ' · ' + runDoneLabel(run) };
     } else if (c.loading) status = { kind: 'text', text: 'Reading the transcript…' };
     else if (c.session) status = { kind: 'text', text: 'Earlier conversation · ' + ((row && whenLabel(row.updated)) || '') };
-    else status = { kind: 'text', text: 'New conversation in ' + this.home() + ' · ' + (c.mode === 'work' ? 'can write' : c.mode === 'write' ? 'can write inside it' : 'reads only') };
+    else status = { kind: 'text', text: 'New conversation in ' + this.home() + ' · ' + (c.mode === 'work' ? 'can write' : c.mode === 'write' ? 'can edit files' : 'reads only') };
 
     return {
       open: !!c && !this.closing,

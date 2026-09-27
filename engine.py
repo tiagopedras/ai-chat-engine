@@ -25,7 +25,9 @@ Three modes, and the difference between them is the whole of the safety story:
          way to change anything is Edit/Write, and an allow rule scoped to
          the cwd is what lets those through; anything outside it has no rule
          and `dontAsk` refuses it. The host's `write_denies` (see
-         WRITE_DENIES) are refused even inside the cwd. Gated by the same
+         WRITE_DENIES) are refused even inside the cwd, and a host that
+         names `write_allows` (absolute folders) holds writing to those
+         instead of the whole cwd. Gated by the same
          `"work": true` as work mode.
 
   work   does the job in full, permissions bypassed. Only exists if the
@@ -362,11 +364,13 @@ class Engine:
 
     def __init__(self, default_cwd, config_path, sessions_path,
                  ask_denies=None, max_runs=MAX_RUNS, default_timeout=DEFAULT_TIMEOUT,
-                 write_denies=None):
+                 write_denies=None, write_allows=None):
         self.default_cwd = default_cwd
         self.config_path = config_path
         self.ask_denies = list(ask_denies or ASK_DENIES)
         self.write_denies = list(write_denies or WRITE_DENIES)
+        # Absolute folders a write run may edit in. Empty means the cwd.
+        self.write_allows = list(write_allows or [])
         self.max_runs = max_runs
         self.default_timeout = default_timeout
         self.sessions = SessionStore(sessions_path)
@@ -497,10 +501,12 @@ class Engine:
         elif mode == "write":
             # `//` makes the path absolute in a permission rule; a lone `/`
             # would be read relative to the settings file.
-            inside = "/" + cfg["cwd"].rstrip("/") + "/**"
+            allowed = []
+            for folder in (self.write_allows or [cfg["cwd"]]):
+                inside = "/" + folder.rstrip("/") + "/**"
+                allowed += ["Edit(%s)" % inside, "Write(%s)" % inside]
             out += ["--permission-mode", "dontAsk",
-                    "--allowedTools", "Edit(%s)" % inside, "Write(%s)" % inside,
-                    "--disallowedTools"] + WRITE_TOOL_DENIES
+                    "--allowedTools"] + allowed + ["--disallowedTools"] + WRITE_TOOL_DENIES
             for pattern in self.write_denies:
                 out += ["Edit(%s)" % pattern, "Write(%s)" % pattern]
         else:
