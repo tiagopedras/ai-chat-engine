@@ -373,6 +373,9 @@ fall. A replayed transcript is chronological too once its transport sends the
 `parts` field described under "The HTTP contract", and falls back to tools then
 text against one that does not. `thinkingGlyphs: true` swaps the turning ring
 for the CLI's own cycling asterisk, which is Tenon's `Spinner variant="glyph"`.
+`thinkingOrbs: true` draws a dotted orb from `thinking-orbs` there instead,
+its animation following the run (starting, thinking, writing, waiting on you),
+and the table that pairs them is `ORBS` in `src/ChatWindow.tsx`.
 
 ## Making it look like the host
 

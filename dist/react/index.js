@@ -1,15 +1,16 @@
 import { useEffect as e, useLayoutEffect as t, useRef as n, useState as r, useSyncExternalStore as i } from "react";
-import { Alert as a, Button as o, Disclosure as s, EditableText as c, LinkButton as l, Markdown as u, Modal as d, Pill as f, Spinner as p, Switch as m, Textarea as h, Window as g } from "@tiagopedras/tenon";
+import { ThinkingOrb as a } from "thinking-orbs";
+import { Alert as o, Button as s, Disclosure as c, EditableText as l, LinkButton as u, Markdown as d, Modal as f, Pill as p, Spinner as m, Switch as ee, Textarea as h, Window as g } from "@tiagopedras/tenon";
 import { Fragment as _, jsx as v, jsxs as y } from "react/jsx-runtime";
 import { createRoot as b } from "react-dom/client";
 //#region src/Transcript.tsx
 function x({ text: t, className: i }) {
-	let [a, s] = r("idle"), c = n();
+	let [a, o] = r("idle"), c = n();
 	e(() => () => clearTimeout(c.current), []);
 	let l = (e) => {
-		s(e), clearTimeout(c.current), c.current = setTimeout(() => s("idle"), e === "done" ? 1500 : 4e3);
+		o(e), clearTimeout(c.current), c.current = setTimeout(() => o("idle"), e === "done" ? 1500 : 4e3);
 	};
-	return /* @__PURE__ */ v(o, {
+	return /* @__PURE__ */ v(s, {
 		size: "sm",
 		variant: "secondary",
 		className: i,
@@ -28,7 +29,7 @@ function S({ tools: e }) {
 		t.includes(n) || t.push(n);
 	});
 	let n = `${e.length} ${e.length === 1 ? "step" : "steps"} · ${t.slice(0, 4).join(", ")}${t.length > 4 ? "…" : ""}`;
-	return /* @__PURE__ */ v(s, {
+	return /* @__PURE__ */ v(c, {
 		className: "aic-trace",
 		summary: n,
 		children: /* @__PURE__ */ v("ol", {
@@ -41,14 +42,14 @@ function C({ flow: e }) {
 	let t = [], n = [], r = (e) => {
 		n.length && (t.push(/* @__PURE__ */ v("div", {
 			className: "aic-toolpills",
-			children: n.map((e, t) => /* @__PURE__ */ v(f, {
+			children: n.map((e, t) => /* @__PURE__ */ v(p, {
 				dot: !0,
 				children: e
 			}, t))
 		}, `p${e}`)), n = []);
 	};
 	return e.forEach((e, i) => {
-		e.kind === "tool" ? n.push(e.label) : (r(i), t.push(/* @__PURE__ */ v(u, {
+		e.kind === "tool" ? n.push(e.label) : (r(i), t.push(/* @__PURE__ */ v(d, {
 			className: "aic-reply",
 			children: e.text
 		}, `t${i}`)));
@@ -57,7 +58,7 @@ function C({ flow: e }) {
 		children: t
 	}) : null;
 }
-function w({ turn: e, index: t, showActs: n, inlineTools: r, onRetry: i, onEdit: s }) {
+function w({ turn: e, index: t, showActs: n, inlineTools: r, onRetry: i, onEdit: a }) {
 	return /* @__PURE__ */ y("div", {
 		className: "aic-turn",
 		children: [
@@ -67,7 +68,7 @@ function w({ turn: e, index: t, showActs: n, inlineTools: r, onRetry: i, onEdit:
 					className: "aic-minewrap",
 					children: [/* @__PURE__ */ v("div", {
 						className: "aic-bubble",
-						children: /* @__PURE__ */ v(u, {
+						children: /* @__PURE__ */ v(d, {
 							inline: !0,
 							children: e.ask
 						})
@@ -75,16 +76,16 @@ function w({ turn: e, index: t, showActs: n, inlineTools: r, onRetry: i, onEdit:
 						className: "aic-mineacts",
 						children: [
 							/* @__PURE__ */ v(x, { text: e.ask }),
-							/* @__PURE__ */ v(o, {
+							/* @__PURE__ */ v(s, {
 								size: "sm",
 								variant: "secondary",
 								onClick: () => i(t),
 								children: "Retry"
 							}),
-							/* @__PURE__ */ v(o, {
+							/* @__PURE__ */ v(s, {
 								size: "sm",
 								variant: "secondary",
-								onClick: () => s(t),
+								onClick: () => a(t),
 								children: "Edit"
 							})
 						]
@@ -97,12 +98,12 @@ function w({ turn: e, index: t, showActs: n, inlineTools: r, onRetry: i, onEdit:
 				children: /* @__PURE__ */ v(x, { text: e.reply })
 			}) : /* @__PURE__ */ y("div", {
 				className: "aic-reply",
-				children: [/* @__PURE__ */ v(u, { children: e.reply }), /* @__PURE__ */ v("div", {
+				children: [/* @__PURE__ */ v(d, { children: e.reply }), /* @__PURE__ */ v("div", {
 					className: "aic-acts",
 					children: /* @__PURE__ */ v(x, { text: e.reply })
 				})]
 			})),
-			e.error && /* @__PURE__ */ v(a, {
+			e.error && /* @__PURE__ */ v(o, {
 				tone: "error",
 				className: "aic-err",
 				title: e.error,
@@ -111,18 +112,18 @@ function w({ turn: e, index: t, showActs: n, inlineTools: r, onRetry: i, onEdit:
 		]
 	});
 }
-var T = (e) => e.scrollHeight - e.scrollTop - e.clientHeight < 80;
-function E({ view: e, controller: i, onEdit: s }) {
+var te = (e) => e.scrollHeight - e.scrollTop - e.clientHeight < 80;
+function ne({ view: e, controller: i, onEdit: a }) {
 	let c = n(null), l = n(!0), [u, d] = r(!1), f = n(!1), p = () => {
 		let e = c.current;
-		e && (l.current = T(e), d(!l.current && e.scrollHeight > e.clientHeight));
+		e && (l.current = te(e), d(!l.current && e.scrollHeight > e.clientHeight));
 	};
 	t(() => {
 		let t = c.current;
 		t && ((e.busy || f.current) && l.current && (t.scrollTop = t.scrollHeight), f.current = e.busy, p());
 	});
 	let m;
-	return m = e.loadErr && !e.turns.length ? /* @__PURE__ */ v(a, {
+	return m = e.loadErr && !e.turns.length ? /* @__PURE__ */ v(o, {
 		tone: "error",
 		children: e.loadErr
 	}) : e.toobig ? /* @__PURE__ */ v("p", {
@@ -134,7 +135,7 @@ function E({ view: e, controller: i, onEdit: s }) {
 		showActs: n === e.turns.length - 1 && !e.busy,
 		inlineTools: e.inlineTools,
 		onRetry: i.retry,
-		onEdit: (e) => s(i.editText(e))
+		onEdit: (e) => a(i.editText(e))
 	}, n)) : e.loading ? /* @__PURE__ */ v("p", {
 		className: "aic-none",
 		children: "…"
@@ -152,7 +153,7 @@ function E({ view: e, controller: i, onEdit: s }) {
 			ref: c,
 			onScroll: p,
 			children: m
-		}), u && /* @__PURE__ */ v(o, {
+		}), u && /* @__PURE__ */ v(s, {
 			size: "sm",
 			variant: "secondary",
 			className: "aic-scrollpill",
@@ -166,10 +167,10 @@ function E({ view: e, controller: i, onEdit: s }) {
 }
 //#endregion
 //#region src/useChat.ts
-function D(e) {
+function T(e) {
 	return i(e.subscribe, e.getSnapshot, e.getSnapshot);
 }
-function O(t) {
+function re(t) {
 	let [n, i] = r(() => Date.now());
 	return e(() => {
 		if (!t) return;
@@ -180,8 +181,37 @@ function O(t) {
 }
 //#endregion
 //#region src/ChatWindow.tsx
-function ee({ view: e }) {
-	let t = O(e.status.kind === "running"), n = e.status, r = /* @__PURE__ */ v(p, {
+var E = {
+	starting: {
+		state: "breathing",
+		dots: .5,
+		dotSize: 1.1
+	},
+	thinking: {
+		state: "solving",
+		dots: .65,
+		dotSize: 1.1
+	},
+	writing: {
+		state: "composing",
+		dots: .45,
+		dotSize: 1.1
+	},
+	decision: {
+		state: "listening",
+		dots: .5,
+		dotSize: 1.1
+	}
+};
+function ie({ view: e }) {
+	let t = re(e.status.kind === "running"), n = e.status, r = e.thinkingOrbs ? E[n.kind === "permission" ? "decision" : n.kind === "running" ? n.phase : ""] || E.thinking : null, i = r ? /* @__PURE__ */ v(a, {
+		size: 20,
+		state: r.state,
+		dots: r.dots,
+		dotSize: r.dotSize,
+		className: "aic-star aic-orb",
+		"aria-hidden": "true"
+	}) : /* @__PURE__ */ v(m, {
 		size: "sm",
 		variant: e.thinkingGlyphs ? "glyph" : "ring",
 		className: e.thinkingGlyphs ? "aic-star aic-glyph" : "aic-star",
@@ -190,7 +220,7 @@ function ee({ view: e }) {
 	return n.kind === "permission" ? /* @__PURE__ */ y("div", {
 		className: "aic-status aic-live",
 		"aria-live": "polite",
-		children: [r, /* @__PURE__ */ v("span", {
+		children: [i, /* @__PURE__ */ v("span", {
 			className: "aic-doing",
 			children: "Waiting on your decision"
 		})]
@@ -198,7 +228,7 @@ function ee({ view: e }) {
 		className: "aic-status aic-live",
 		"aria-live": "polite",
 		children: [
-			r,
+			i,
 			/* @__PURE__ */ v("span", {
 				className: "aic-doing",
 				children: n.doing
@@ -214,27 +244,27 @@ function ee({ view: e }) {
 		children: n.text
 	});
 }
-function k({ view: e, controller: t }) {
+function D({ view: e, controller: t }) {
 	let n = e.permission;
-	return n ? /* @__PURE__ */ v(a, {
+	return n ? /* @__PURE__ */ v(o, {
 		tone: "warning",
 		className: "aic-permission",
 		title: n.title,
 		actions: /* @__PURE__ */ y(_, { children: [
-			/* @__PURE__ */ v(o, {
+			/* @__PURE__ */ v(s, {
 				variant: "primary",
 				size: "sm",
 				onClick: () => t.answerPermission("allow"),
 				children: "Allow"
 			}),
-			n.canAlwaysAllow && /* @__PURE__ */ v(o, {
+			n.canAlwaysAllow && /* @__PURE__ */ v(s, {
 				variant: "ghost",
 				size: "sm",
 				title: "Allow this for the rest of the session, without asking again",
 				onClick: () => t.answerPermission("allow_always"),
 				children: "Always allow"
 			}),
-			/* @__PURE__ */ v(o, {
+			/* @__PURE__ */ v(s, {
 				variant: "ghost",
 				size: "sm",
 				onClick: () => t.answerPermission("deny"),
@@ -244,7 +274,7 @@ function k({ view: e, controller: t }) {
 		children: n.description || void 0
 	}) : null;
 }
-function A({ view: e, controller: t, draft: n, setDraft: r, input: i }) {
+function ae({ view: e, controller: t, draft: n, setDraft: r, input: i }) {
 	let a = (e) => {
 		e?.preventDefault(), t.send(n) ? r("") : i.current?.focus();
 	};
@@ -265,13 +295,13 @@ function A({ view: e, controller: t, draft: n, setDraft: r, input: i }) {
 				e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && (e.preventDefault(), a());
 			},
 			autoFocus: !0
-		}), e.busy ? /* @__PURE__ */ v(o, {
+		}), e.busy ? /* @__PURE__ */ v(s, {
 			type: "button",
 			variant: "secondary",
 			className: "aic-stop",
 			onClick: t.stop,
 			children: "Stop"
-		}) : /* @__PURE__ */ v(o, {
+		}) : /* @__PURE__ */ v(s, {
 			type: "submit",
 			variant: "primary",
 			className: "aic-send",
@@ -279,12 +309,12 @@ function A({ view: e, controller: t, draft: n, setDraft: r, input: i }) {
 		})]
 	});
 }
-function j({ controller: t }) {
-	let i = D(t), [a, s] = r(""), u = n(null);
+function O({ controller: t }) {
+	let i = T(t), [a, o] = r(""), c = n(null);
 	e(() => {
-		i.openId && s(t.takeSeed());
+		i.openId && o(t.takeSeed());
 	}, [i.openId, t]);
-	let f = i.renamable ? /* @__PURE__ */ v(c, {
+	let d = i.renamable ? /* @__PURE__ */ v(l, {
 		value: i.title,
 		onCommit: t.rename
 	}) : i.title, p = i.ownerLabel || i.subtitle ? /* @__PURE__ */ y(_, { children: [i.ownerLabel && /* @__PURE__ */ v("span", {
@@ -293,15 +323,15 @@ function j({ controller: t }) {
 	}), i.subtitle && /* @__PURE__ */ v("span", {
 		className: "aic-sub",
 		children: i.subtitle
-	})] }) : void 0, h = i.writeSwitch ? /* @__PURE__ */ y("label", {
+	})] }) : void 0, m = i.writeSwitch ? /* @__PURE__ */ y("label", {
 		className: "aic-write",
 		title: "Lets Claude create and edit files inside its working folder, from your next message",
-		children: [/* @__PURE__ */ v(m, {
+		children: [/* @__PURE__ */ v(ee, {
 			checked: i.canWrite,
 			onChange: t.setWrite,
 			"aria-label": "Can write"
 		}), /* @__PURE__ */ v("span", { children: "Can write" })]
-	}) : null, b = i.desktopHref ? /* @__PURE__ */ v(l, {
+	}) : null, h = i.desktopHref ? /* @__PURE__ */ v(u, {
 		variant: "ghost",
 		size: "sm",
 		className: "aic-desktop",
@@ -310,24 +340,24 @@ function j({ controller: t }) {
 		rel: "noopener",
 		title: "Imports this session into Claude Desktop and carries it on there",
 		children: "Open in Claude"
-	}) : null, x = h || b ? /* @__PURE__ */ y(_, { children: [h, b] }) : void 0, S = /* @__PURE__ */ y(_, { children: [/* @__PURE__ */ v(k, {
+	}) : null, b = m || h ? /* @__PURE__ */ y(_, { children: [m, h] }) : void 0, x = /* @__PURE__ */ y(_, { children: [/* @__PURE__ */ v(D, {
 		view: i,
 		controller: t
-	}), /* @__PURE__ */ v(E, {
+	}), /* @__PURE__ */ v(ne, {
 		view: i,
 		controller: t,
 		onEdit: (e) => {
-			s(e), u.current?.focus();
+			o(e), c.current?.focus();
 		}
-	})] }), C = /* @__PURE__ */ y(_, { children: [/* @__PURE__ */ v(ee, { view: i }), /* @__PURE__ */ v(A, {
+	})] }), S = /* @__PURE__ */ y(_, { children: [/* @__PURE__ */ v(ie, { view: i }), /* @__PURE__ */ v(ae, {
 		view: i,
 		controller: t,
 		draft: a,
-		setDraft: s,
-		input: u
-	})] }), w = i.presentation;
-	if (i.dockable && w.dock !== "none") {
-		let e = w.dock === "minimised", n = (e) => {
+		setDraft: o,
+		input: c
+	})] }), C = i.presentation;
+	if (i.dockable && C.dock !== "none") {
+		let e = C.dock === "minimised", n = (e) => {
 			t.pressed();
 			let n = e.target;
 			n.closest(".tenon-window__head") && !n.closest("button,a,input,textarea,[contenteditable=\"true\"]") && e.stopPropagation();
@@ -335,8 +365,8 @@ function j({ controller: t }) {
 			className: "aic-dockstate",
 			children: r
 		}) : /* @__PURE__ */ y(_, { children: [
-			x,
-			/* @__PURE__ */ v(o, {
+			b,
+			/* @__PURE__ */ v(s, {
 				variant: "ghost",
 				size: "sm",
 				iconOnly: !0,
@@ -346,7 +376,7 @@ function j({ controller: t }) {
 				onClick: t.minimise,
 				children: "–"
 			}),
-			/* @__PURE__ */ v(o, {
+			/* @__PURE__ */ v(s, {
 				variant: "ghost",
 				size: "sm",
 				iconOnly: !0,
@@ -361,24 +391,24 @@ function j({ controller: t }) {
 			open: i.open,
 			onClose: t.closeChat,
 			closeButton: !i.pinned,
-			title: e ? i.title : f,
+			title: e ? i.title : d,
 			subtitle: e ? void 0 : p,
 			headEnd: a,
-			footer: e ? void 0 : C,
+			footer: e ? void 0 : S,
 			bare: !0,
 			className: "aic-box aic-docked " + (e ? "aic-minimised" : "aic-anchored") + (i.pinned ? " aic-pinned" : ""),
 			"data-state": i.runState || void 0,
-			rect: w.dockRect,
-			zIndex: w.zIndex,
-			active: w.active && !e,
+			rect: C.dockRect,
+			zIndex: C.zIndex,
+			active: C.active && !e,
 			onPointerDownCapture: n,
 			onClick: e ? (e) => {
 				e.target.closest("button,a") || t.anchor();
 			} : void 0,
-			children: e ? null : S
+			children: e ? null : x
 		});
 	}
-	let T = i.dockable ? /* @__PURE__ */ y(_, { children: [x, /* @__PURE__ */ v(o, {
+	let w = i.dockable ? /* @__PURE__ */ y(_, { children: [b, /* @__PURE__ */ v(s, {
 		variant: "ghost",
 		size: "sm",
 		iconOnly: !0,
@@ -387,42 +417,42 @@ function j({ controller: t }) {
 		title: "Minimise",
 		onClick: t.minimise,
 		children: "–"
-	})] }) : x;
+	})] }) : b;
 	return i.windowed ? /* @__PURE__ */ v(g, {
 		open: i.open,
 		onClose: t.closeChat,
-		title: f,
+		title: d,
 		subtitle: p,
-		headEnd: T,
-		footer: C,
+		headEnd: w,
+		footer: S,
 		bare: !0,
 		className: "aic-box",
 		"data-state": i.runState || void 0,
-		rect: w.rect,
-		growFrom: w.growFrom,
-		zIndex: w.zIndex,
-		active: w.active,
-		peeked: w.peeked,
+		rect: C.rect,
+		growFrom: C.growFrom,
+		zIndex: C.zIndex,
+		active: C.active,
+		peeked: C.peeked,
 		onRectLive: t.rectLive,
 		onRectChange: t.rectChange,
 		onFocus: t.pressed,
-		children: S
-	}) : /* @__PURE__ */ v(d, {
+		children: x
+	}) : /* @__PURE__ */ v(f, {
 		open: i.open,
 		onClose: t.closeChat,
-		title: f,
+		title: d,
 		subtitle: p,
-		headEnd: T,
-		footer: C,
+		headEnd: w,
+		footer: S,
 		size: "lg",
 		bare: !0,
 		className: "aic-box aic-modal",
-		children: S
+		children: x
 	});
 }
 //#endregion
 //#region src/format.ts
-var M = {
+var k = {
 	Read: "file_path",
 	Edit: "file_path",
 	Write: "file_path",
@@ -434,11 +464,11 @@ var M = {
 	Skill: "skill",
 	Task: "description"
 };
-function N(e, t, n) {
-	let r = t || {}, i = M[e], a = i && r[i] ? String(r[i]) : "";
+function A(e, t, n) {
+	let r = t || {}, i = k[e], a = i && r[i] ? String(r[i]) : "";
 	return a ||= Object.values(r).find((e) => typeof e == "string") || "", n && a.indexOf(n + "/") === 0 && (a = a.slice(n.length + 1)), a = a.replace(/\s+/g, " ").trim(), a.length > 70 && (a = a.slice(0, 69) + "…"), a ? e + " " + a : e;
 }
-var P = {
+var j = {
 	starting: "Starting up",
 	thinking: "Thinking it through",
 	writing: "Writing the answer",
@@ -454,46 +484,46 @@ var P = {
 	WebSearch: "Searching the web",
 	done: "Finished"
 };
-function F(e) {
-	return P[e] || (e ? "Using " + e : "Working");
+function M(e) {
+	return j[e] || (e ? "Using " + e : "Working");
 }
-function te(e) {
+function N(e) {
 	return e < .01 ? "under 1¢" : "$" + e.toFixed(2);
 }
-function ne(e) {
+function P(e) {
 	let t = Math.max(1, Math.round((e.ms || Date.now() - e.started) / 1e3)), n = [e.status === "done" ? "done" : "stopped", t + "s"];
-	return e.cost && n.push(te(e.cost)), n.join(" · ");
+	return e.cost && n.push(N(e.cost)), n.join(" · ");
 }
-function I(e) {
+function F(e) {
 	let t = String(e).replace(/\s+/g, " ").trim(), n = /[.?!]\s/.exec(t);
 	return n && n.index > 12 && (t = t.slice(0, n.index + 1)), t.length > 54 && (t = t.slice(0, 54).replace(/\s+\S*$/, "") + "…"), t.replace(/[.,;:\s]+$/, "");
 }
-function L(e) {
+function I(e) {
 	return new Date(e.getFullYear(), e.getMonth(), e.getDate()).getTime();
 }
-function R(e) {
+function L(e) {
 	let t = new Date(e || "");
 	if (isNaN(t.getTime())) return "";
-	let n = Math.floor((L(/* @__PURE__ */ new Date()) - L(t)) / 864e5);
+	let n = Math.floor((I(/* @__PURE__ */ new Date()) - I(t)) / 864e5);
 	return n <= 0 ? "today" : n === 1 ? "yesterday" : n < 7 ? n + " days ago" : t.toLocaleDateString(void 0, {
 		day: "numeric",
 		month: "short",
 		year: "numeric"
 	});
 }
-function z(e) {
+function R(e) {
 	return "claude://resume?session=" + encodeURIComponent(e);
 }
 //#endregion
 //#region src/transport.ts
-var B = {
+var z = {
 	status: "/claude.json",
 	sessions: "/claude/sessions.json",
 	transcript: "/claude/transcript.json",
 	forget: "/claude/forget",
 	run: "/claude"
 };
-function V(e, t) {
+function B(e, t) {
 	let n = (e) => ({
 		...e || {},
 		[t.name]: t.value
@@ -566,32 +596,32 @@ function V(e, t) {
 }
 //#endregion
 //#region src/dock.ts
-var H = 16, U = 12, W = 300, G = 52, K = 400, q = 560, J = [], Y = /* @__PURE__ */ new Set(), X = !1;
-function Z() {
-	Y.forEach((e) => e());
+var V = 16, H = 12, U = 300, W = 52, G = 400, K = 560, q = [], J = /* @__PURE__ */ new Set(), Y = !1;
+function X() {
+	J.forEach((e) => e());
 }
-var re = Z;
-function ie(e) {
-	return Y.add(e), () => {
-		Y.delete(e);
+var Z = X;
+function oe(e) {
+	return J.add(e), () => {
+		J.delete(e);
 	};
 }
-function ae(e) {
-	J.includes(e) || J.push(e), !X && typeof window < "u" && (X = !0, window.addEventListener("resize", Z)), Z();
+function se(e) {
+	q.includes(e) || q.push(e), !Y && typeof window < "u" && (Y = !0, window.addEventListener("resize", X)), X();
 }
 function Q(e) {
-	let t = J.indexOf(e);
-	t < 0 || (J.splice(t, 1), Z());
+	let t = q.indexOf(e);
+	t < 0 || (q.splice(t, 1), X());
 }
-function oe() {
-	return [...J.filter((e) => e.pinned?.()), ...J.filter((e) => !e.pinned?.())];
+function ce() {
+	return [...q.filter((e) => e.pinned?.()), ...q.filter((e) => !e.pinned?.())];
 }
-function se(e) {
-	let t = oe(), n = t.indexOf(e);
+function le(e) {
+	let t = ce(), n = t.indexOf(e);
 	if (n < 0) return null;
-	let r = typeof window < "u" ? window.innerWidth : 1280, i = typeof window < "u" ? window.innerHeight : 800, a = r - H;
-	for (let e = 0; e < n; e++) a -= (t[e].dockState() === "anchored" ? K : W) + U;
-	let o = e.dockState() === "anchored", s = o ? K : W, c = o ? Math.min(q, i - 32) : G;
+	let r = typeof window < "u" ? window.innerWidth : 1280, i = typeof window < "u" ? window.innerHeight : 800, a = r - V;
+	for (let e = 0; e < n; e++) a -= (t[e].dockState() === "anchored" ? G : U) + H;
+	let o = e.dockState() === "anchored", s = o ? G : U, c = o ? Math.min(K, i - 32) : W;
 	return {
 		x: a - s,
 		y: i - c,
@@ -601,7 +631,7 @@ function se(e) {
 }
 //#endregion
 //#region src/controller.ts
-function ce(e) {
+function ue(e) {
 	return e ? "(Writing is now switched on for this conversation: you can create and edit files inside the working directory, and nothing outside it. Anything said earlier about not being able to write no longer holds.)" : "(Writing is now switched off again for this conversation: you can read, but not create or edit files.)";
 }
 var $ = class {
@@ -633,14 +663,14 @@ var $ = class {
 	constructor(e = {}) {
 		this.opts = e;
 		let t = {
-			...B,
+			...z,
 			...e.endpoints || {}
 		}, n = {
 			name: "X-Board",
 			value: "1",
 			...e.guardHeader || {}
 		};
-		this.transport = Object.assign(V(t, n), e.transport || {}), this.windowed = !!e.windowed, this.defaultMode = e.mode === "work" || e.mode === "write" ? e.mode : "ask", this.dockable = !!e.dockable, this.pin = this.dockable && !!e.pinned, this.dockable && (this.unDock = ie(() => {
+		this.transport = Object.assign(B(t, n), e.transport || {}), this.windowed = !!e.windowed, this.defaultMode = e.mode === "work" || e.mode === "write" ? e.mode : "ask", this.dockable = !!e.dockable, this.pin = this.dockable && !!e.pinned, this.dockable && (this.unDock = oe(() => {
 			this.dock !== "none" && this.emit();
 		}));
 	}
@@ -737,9 +767,9 @@ var $ = class {
 			let t = await this.transport.transcript(e, r);
 			if (!this.current || this.current.session !== e) return;
 			this.current.turns = t.toobig ? [] : t.turns.map((e) => {
-				let t = (e.tools || []).map((e) => N(e.name, e.input, r)), n = Array.isArray(e.parts) && e.parts.length ? e.parts.map((e) => e.type === "tool" ? {
+				let t = (e.tools || []).map((e) => A(e.name, e.input, r)), n = Array.isArray(e.parts) && e.parts.length ? e.parts.map((e) => e.type === "tool" ? {
 					kind: "tool",
-					label: N(e.name, e.input, r)
+					label: A(e.name, e.input, r)
 				} : {
 					kind: "text",
 					text: e.text || ""
@@ -804,7 +834,7 @@ var $ = class {
 				}), e.status = "writing";
 			} else if (n.type === "thinking") e.status = "thinking";
 			else if (n.type === "tool_use") {
-				let r = N(n.name, n.input, e.cwd);
+				let r = A(n.name, n.input, e.cwd);
 				t.tools.push(r), t.flow.push({
 					kind: "tool",
 					label: r
@@ -882,7 +912,7 @@ var $ = class {
 			session: t.session,
 			ask: n,
 			prompt: i,
-			title: (this.sessionsFor(t.key).find((e) => e.id === t.session) || {}).title || I(n),
+			title: (this.sessionsFor(t.key).find((e) => e.id === t.session) || {}).title || F(n),
 			mode: t.mode || "ask",
 			turns: r ? r.turns : t.turns || []
 		}), !0;
@@ -900,7 +930,7 @@ var $ = class {
 			key: t.key,
 			session: t.session,
 			ask: n.ask,
-			title: (this.sessionsFor(t.key).find((e) => e.id === t.session) || {}).title || I(n.ask),
+			title: (this.sessionsFor(t.key).find((e) => e.id === t.session) || {}).title || F(n.ask),
 			mode: t.mode || "ask",
 			turns: r ? r.turns : t.turns || []
 		});
@@ -923,7 +953,7 @@ var $ = class {
 		let t = this.current;
 		if (!t || !this.writeAllowed()) return;
 		let n = e ? "write" : this.defaultMode === "write" ? "ask" : this.defaultMode;
-		t.mode !== n && (t.mode = n, t.modeNote = t.modeNote ? "" : (this.opts.writeNote || ce)(e), this.emit());
+		t.mode !== n && (t.mode = n, t.modeNote = t.modeNote ? "" : (this.opts.writeNote || ue)(e), this.emit());
 	};
 	setHeader = (e) => {
 		this.header = e || null, this.emit();
@@ -965,7 +995,7 @@ var $ = class {
 	setDock(e) {
 		if (!this.dockable || !this.current || this.dock === e) return;
 		let t = this.dock;
-		this.dock = e, e === "none" ? (Q(this), this.emit()) : t === "none" ? ae(this) : re();
+		this.dock = e, e === "none" ? (Q(this), this.emit()) : t === "none" ? se(this) : Z();
 	}
 	leaveDock() {
 		this.dock !== "none" && (this.dock = "none", Q(this));
@@ -992,17 +1022,18 @@ var $ = class {
 		let e = this.current, t = this.currentRun(), n = e ? this.sessionsFor(e.key).find((t) => t.id === e.session) : void 0, r = n && n.title || t && t.title || "New chat", i = !!(t && t.running), a;
 		return a = e ? t && t.permission ? { kind: "permission" } : t && t.running ? {
 			kind: "running",
-			doing: F(t.status),
-			started: t.started
+			doing: M(t.status),
+			started: t.started,
+			phase: t.status
 		} : t ? {
 			kind: "text",
-			text: (t.mode === "work" ? "Claude, working in " : t.mode === "write" ? "Claude, writing in " : "Claude, reading in ") + (t.home || "") + " · " + ne(t)
+			text: (t.mode === "work" ? "Claude, working in " : t.mode === "write" ? "Claude, writing in " : "Claude, reading in ") + (t.home || "") + " · " + P(t)
 		} : e.loading ? {
 			kind: "text",
 			text: "Reading the transcript…"
 		} : e.session ? {
 			kind: "text",
-			text: "Earlier conversation · " + (n && R(n.updated) || "")
+			text: "Earlier conversation · " + (n && L(n.updated) || "")
 		} : {
 			kind: "text",
 			text: "New conversation in " + this.home() + " · " + (e.mode === "work" ? "can write" : e.mode === "write" ? "can edit files" : "reads only")
@@ -1019,7 +1050,7 @@ var $ = class {
 			ownerLabel: e && this.opts.ownerLabel?.(e.owner) || "",
 			subtitle: this.header && this.header.subtitle || "",
 			runState: this.header && this.header.runState || "",
-			desktopHref: this.opts.desktopLink !== !1 && e && e.session ? z(e.session) : null,
+			desktopHref: this.opts.desktopLink !== !1 && e && e.session ? R(e.session) : null,
 			status: a,
 			turns: this.currentTurns().map((e) => ({
 				...e,
@@ -1035,6 +1066,7 @@ var $ = class {
 			placeholder: this.opts.placeholder || "Ask Claude…",
 			inlineTools: !!this.opts.inlineTools,
 			thinkingGlyphs: !!this.opts.thinkingGlyphs,
+			thinkingOrbs: !!this.opts.thinkingOrbs,
 			renamable: typeof this.opts.onRename == "function",
 			dockable: this.dockable,
 			pinned: this.pin,
@@ -1047,16 +1079,16 @@ var $ = class {
 				active: this.active,
 				peeked: this.peeked,
 				dock: this.dock,
-				dockRect: this.dock === "none" ? null : se(this)
+				dockRect: this.dock === "none" ? null : le(this)
 			}
 		};
 	}
 };
 //#endregion
 //#region src/create.tsx
-function le(e = {}) {
+function de(e = {}) {
 	let t = new $(e), n = null, r = null, i = () => {
-		r || (n = document.createElement("div"), n.setAttribute("data-ai-chat", ""), document.body.appendChild(n), r = b(n), r.render(/* @__PURE__ */ v(j, { controller: t })));
+		r || (n = document.createElement("div"), n.setAttribute("data-ai-chat", ""), document.body.appendChild(n), r = b(n), r.render(/* @__PURE__ */ v(O, { controller: t })));
 	};
 	return {
 		loadStatus: t.loadStatus,
@@ -1095,4 +1127,4 @@ function le(e = {}) {
 	};
 }
 //#endregion
-export { $ as ChatController, j as ChatWindow, B as DEFAULT_ENDPOINTS, I as chatTitle, le as create, z as desktopHref, V as makeDefaultTransport, N as toolLabel, D as useChat, R as whenLabel };
+export { $ as ChatController, O as ChatWindow, z as DEFAULT_ENDPOINTS, F as chatTitle, de as create, R as desktopHref, B as makeDefaultTransport, A as toolLabel, T as useChat, L as whenLabel };

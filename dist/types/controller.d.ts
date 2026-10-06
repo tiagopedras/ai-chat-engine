@@ -5,7 +5,8 @@ export type StatusLine = {
 } | {
     kind: 'running';
     doing: string;
-    started: number;
+    started: number; /** The run's raw status: starting, thinking, writing or a tool name. */
+    phase: string;
 } | {
     kind: 'text';
     text: string;
@@ -35,6 +36,7 @@ export interface ChatView {
     placeholder: string;
     inlineTools: boolean;
     thinkingGlyphs: boolean;
+    thinkingOrbs: boolean;
     renamable: boolean;
     /** Whether the host asked for the minimise and anchor buttons. */
     dockable: boolean;

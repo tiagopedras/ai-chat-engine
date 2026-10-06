@@ -37,7 +37,9 @@ export default defineConfig(({ mode }) => {
         ? { entry: resolve(__dirname, 'src/bundle.ts'), name: 'AIChatBundle', formats: ['iife' as const], fileName: () => 'ai-chat.js' }
         : { entry: resolve(__dirname, 'src/index.ts'), formats: ['es' as const], fileName: () => 'index.js' },
       rollupOptions: {
-        external: bundle ? [] : ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', '@tiagopedras/tenon'],
+        /* thinking-orbs is a dependency rather than a peer, so an app gets it
+           installed alongside and the component leaves it out too. */
+        external: bundle ? [] : ['react', 'react-dom', 'react-dom/client', 'react/jsx-runtime', '@tiagopedras/tenon', 'thinking-orbs'],
         output: { assetFileNames: (info) => (info.names?.[0]?.endsWith('.css') ? 'chat.css' : '[name][extname]') },
       },
     },

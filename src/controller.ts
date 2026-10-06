@@ -74,7 +74,7 @@ interface Current {
 
 export type StatusLine =
   | { kind: 'permission' }
-  | { kind: 'running'; doing: string; started: number }
+  | { kind: 'running'; doing: string; started: number; /** The run's raw status: starting, thinking, writing or a tool name. */ phase: string }
   | { kind: 'text'; text: string };
 
 /** Everything a component draws from, as one immutable-by-convention object. */
@@ -102,6 +102,7 @@ export interface ChatView {
   placeholder: string;
   inlineTools: boolean;
   thinkingGlyphs: boolean;
+  thinkingOrbs: boolean;
   renamable: boolean;
   /** Whether the host asked for the minimise and anchor buttons. */
   dockable: boolean;
@@ -674,7 +675,7 @@ export class ChatController {
     let status: StatusLine;
     if (!c) status = { kind: 'text', text: '' };
     else if (run && run.permission) status = { kind: 'permission' };
-    else if (run && run.running) status = { kind: 'running', doing: runDoing(run.status), started: run.started };
+    else if (run && run.running) status = { kind: 'running', doing: runDoing(run.status), started: run.started, phase: run.status };
     else if (run) {
       status = { kind: 'text', text: (run.mode === 'work' ? 'Claude, working in ' : run.mode === 'write' ? 'Claude, writing in ' : 'Claude, reading in ') + (run.home || '') + ' · ' + runDoneLabel(run) };
     } else if (c.loading) status = { kind: 'text', text: 'Reading the transcript…' };
@@ -703,6 +704,7 @@ export class ChatController {
       placeholder: this.opts.placeholder || 'Ask Claude…',
       inlineTools: !!this.opts.inlineTools,
       thinkingGlyphs: !!this.opts.thinkingGlyphs,
+      thinkingOrbs: !!this.opts.thinkingOrbs,
       renamable: typeof this.opts.onRename === 'function',
       dockable: this.dockable,
       pinned: this.pin,

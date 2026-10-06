@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
+import { ThinkingOrb } from 'thinking-orbs';
+import type { OrbState } from 'thinking-orbs';
 import { Alert, Button, EditableText, LinkButton, Modal, Spinner, Switch, Textarea, Window } from '@tiagopedras/tenon';
 import type { ChatController, ChatView } from './controller';
 import { Transcript } from './Transcript';
@@ -10,11 +12,27 @@ import './chat.css';
    doing now, rewritten in place as it moves, and a clock beside it. Sits next
    to the input so it reads as "working on your last message", not as chrome
    up top. */
+/* Which orb each moment of a run gets, when the host asked for orbs. Keyed by
+   the run's own status; `decision` is the wait on a permission answer, and
+   anything not listed, a tool call included, is drawn as thinking. */
+const ORBS: Record<string, { state: OrbState; dots: number; dotSize: number }> = {
+  starting: { state: 'breathing', dots: 0.5, dotSize: 1.1 },
+  thinking: { state: 'solving', dots: 0.65, dotSize: 1.1 },
+  writing: { state: 'composing', dots: 0.45, dotSize: 1.1 },
+  decision: { state: 'listening', dots: 0.5, dotSize: 1.1 },
+};
+
 function Status({ view }: { view: ChatView }) {
   const running = view.status.kind === 'running';
   const now = useNow(running);
   const s = view.status;
-  const spinner = (
+  /* The orb is decoration: the words beside it are what a screen reader hears. */
+  const orb = view.thinkingOrbs
+    ? ORBS[s.kind === 'permission' ? 'decision' : s.kind === 'running' ? s.phase : ''] || ORBS.thinking
+    : null;
+  const spinner = orb ? (
+    <ThinkingOrb size={20} state={orb.state} dots={orb.dots} dotSize={orb.dotSize} className="aic-star aic-orb" aria-hidden="true" />
+  ) : (
     <Spinner
       size="sm"
       variant={view.thinkingGlyphs ? 'glyph' : 'ring'}

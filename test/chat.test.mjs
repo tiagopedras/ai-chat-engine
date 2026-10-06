@@ -61,6 +61,7 @@ ok('  onSend has no session yet', await t.evaluate(`__sent[0].session === ''`));
 ok('  the composer is cleared', await t.evaluate(`document.querySelector('.aic-input').value === ''`));
 ok('  the user bubble renders bold', await t.until(`!!document.querySelector('.aic-bubble strong')`));
 ok('  the status line is live while it runs', await t.until(`!!document.querySelector('.aic-status.aic-live .aic-doing')`));
+ok('  with the ring spinner and no orb', await t.evaluate(`!!document.querySelector('.aic-status.aic-live .tenon-spinner.aic-star') && !document.querySelector('.aic-status canvas')`));
 ok('  Stop takes the slot Send had', await t.until(`!!document.querySelector('.aic-stop') && !document.querySelector('.aic-send')`));
 ok('  the reply lands as markdown', await t.until(`!!document.querySelector('.aic-reply strong') && !!document.querySelector('.aic-reply li')`, 8000));
 ok('  the trace summarises two steps', await t.evaluate(`document.querySelector('.tenon-disclosure__head')?.textContent.includes('2 steps · Read, Grep')`));
@@ -261,6 +262,33 @@ ok('  its first message asks for write mode with no note', await t.until(`__payl
 await t.until(`!!document.querySelector('.aic-send')`, 8000);
 await t.shot('/tmp/aic-write-switch.png');
 await t.evaluate(`ws.destroy()`);
+
+/* ---- thinking orbs ---- */
+await t.evaluate(`
+  window.orbs = [];
+  window.ob = AIChat.create({ transport: makeTransport(), thinkingOrbs: true });
+  ob.loadStatus();
+`);
+await t.until(`ob.available()`);
+await t.evaluate(`
+  ob.openNew('t6', 'k6', '');
+  window.orbTimer = setInterval(() => {
+    const k = document.querySelector('.aic-status.aic-live canvas.aic-orb')?.getAttribute('aria-label');
+    if (k && orbs[orbs.length - 1] !== k) orbs.push(k);
+  }, 5);
+`);
+await t.until(`!!document.querySelector('.aic-input')`);
+await t.evaluate(`document.querySelector('.aic-input').focus()`);
+await t.type('please ask permission');
+await t.key('Enter');
+ok('thinkingOrbs draws an orb on the status line instead of the spinner', await t.until(`!!document.querySelector('.aic-status.aic-live canvas.aic-orb.aic-star') && !document.querySelector('.aic-status .tenon-spinner')`));
+ok('  20px and hidden from screen readers', await t.evaluate(`(() => { const c = document.querySelector('.aic-status canvas.aic-orb'); return c.getAttribute('aria-hidden') === 'true' && c.offsetWidth === 20 && c.offsetHeight === 20 })()`));
+ok('  waiting on a decision is the listening orb', await t.until(`!!document.querySelector('.aic-permission') && document.querySelector('.aic-status canvas.aic-orb')?.getAttribute('aria-label') === 'Listening…'`));
+await t.evaluate(`[...document.querySelectorAll('.aic-permission .tenon-button')].find(b=>b.textContent==='Allow').click()`);
+await t.until(`!!document.querySelector('.aic-send')`, 8000);
+await t.evaluate(`clearInterval(orbTimer)`);
+ok('  starting, thinking and writing each get their own orb', await t.evaluate(`['Thinking…', 'Solving…', 'Composing…', 'Listening…'].every((k) => orbs.includes(k))`), await t.evaluate(`orbs.join(' → ')`));
+await t.evaluate(`ob.destroy()`);
 
 const errors = t.logs.filter((l) => /^EXC|^error/i.test(l));
 ok('no console errors', errors.length === 0, errors.join(' | '));

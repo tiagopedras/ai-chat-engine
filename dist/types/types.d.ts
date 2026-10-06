@@ -148,6 +148,8 @@ export interface ChatOptions {
     pinned?: boolean;
     /** The CLI's cycling asterisk instead of a turning ring. */
     thinkingGlyphs?: boolean;
+    /** A thinking-orbs dotted orb instead of Tenon's spinner, its animation following what the run is doing. Off by default. */
+    thinkingOrbs?: boolean;
     /** Makes the title editable in place and hands back what was typed. */
     onRename?: (title: string) => void;
     ownerLabel?: (owner: string) => string;
