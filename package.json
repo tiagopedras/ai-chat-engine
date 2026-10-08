@@ -2,7 +2,7 @@
   "name": "@tiagopedras/ai-chat-engine",
   "version": "0.5.0",
   "description": "A Claude Code chat window any local app can drop in, built from Tenon's components, plus the engines that run the CLI behind it. React, shipped both as a component and as a one-file bundle for pages with no build.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "main": "dist/react/index.js",
   "browser": "dist/ai-chat.js",

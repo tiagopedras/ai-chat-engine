@@ -132,13 +132,13 @@ await t.until(`w.available()`);
 await t.evaluate(`
   w.growFrom(document.getElementById('card').getBoundingClientRect());
   w.setRect({ x: 300, y: 120, width: 640, height: 560 });
-  w.setHeader({ title: 'Reading the 360 responses', subtitle: 'Design oversight · ~/Code/twinkl-hr', runState: 'running' });
+  w.setHeader({ title: 'Reading the survey notes', subtitle: 'Design oversight · ~/Code/notes', runState: 'running' });
   w.openSession('c1', 'c1', 's-old');
 `);
 ok('a windowed chat is a Tenon window, not a modal', await t.until(`!!document.querySelector('.tenon-window.aic-box') && !document.querySelector('.tenon-modal__scrim')`));
 await wait(500);
 ok('  it sits where the host put it', await t.evaluate(`(() => { const r = document.querySelector('.tenon-window').getBoundingClientRect(); return Math.round(r.left) === 300 && Math.round(r.top) === 120 && Math.round(r.width) === 640 && Math.round(r.height) === 560 })()`));
-ok('  it takes the host\'s title and caption', await t.evaluate(`document.querySelector('.tenon-modal__title').textContent === 'Reading the 360 responses' && document.querySelector('.aic-sub').textContent.startsWith('Design oversight')`));
+ok('  it takes the host\'s title and caption', await t.evaluate(`document.querySelector('.tenon-modal__title').textContent === 'Reading the survey notes' && document.querySelector('.aic-sub').textContent.startsWith('Design oversight')`));
 ok('  the state is stamped on the box', await t.evaluate(`document.querySelector('.tenon-window').dataset.state === 'running'`));
 ok('  no Open in Claude link', await t.evaluate(`!document.querySelector('.aic-desktop')`));
 ok('  the earlier tool call is a pill', await t.evaluate(`document.querySelectorAll('.aic-toolpills .tenon-pill').length === 1`));

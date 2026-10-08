@@ -26,7 +26,7 @@ function script(payload) {
   if (/permission/.test(p)) lines.push({ type: 'board_permission', requestId: 'r1', toolName: 'Bash', title: 'Run rm -rf build?', description: 'Claude wants to clean the build folder', canAlwaysAllow: true }, { wait: 500 });
   if (/slow/.test(p)) lines.push({ wait: 3000 });
   lines.push(asst([{ type: 'thinking' }, { type: 'tool_use', name: 'Read', input: { file_path: '/Users/x/Code/notes.md' } }]));
-  lines.push(asst([{ type: 'tool_use', name: 'Grep', input: { pattern: 'probation' } }], 'm2'));
+  lines.push(asst([{ type: 'tool_use', name: 'Grep', input: { pattern: 'deadline' } }], 'm2'));
   lines.push(asst([{ type: 'text', text: 'Here is **the answer** with `code`.\n\n- one\n- two' }], 'm3'));
   lines.push({ type: 'result', result: 'Here is **the answer** with `code`.\n\n- one\n- two', session_id: 's-new', total_cost_usd: 0.004, duration_ms: 1500 });
   return lines;
