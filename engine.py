@@ -364,13 +364,18 @@ class Engine:
 
     def __init__(self, default_cwd, config_path, sessions_path,
                  ask_denies=None, max_runs=MAX_RUNS, default_timeout=DEFAULT_TIMEOUT,
-                 write_denies=None, write_allows=None):
+                 write_denies=None, write_allows=None, ask_allows=None):
         self.default_cwd = default_cwd
         self.config_path = config_path
         self.ask_denies = list(ask_denies or ASK_DENIES)
         self.write_denies = list(write_denies or WRITE_DENIES)
         # Absolute folders a write run may edit in. Empty means the cwd.
         self.write_allows = list(write_allows or [])
+        # Permission rules an ask run is allowed beyond its cwd, e.g.
+        # "Read(//abs/folder/**)". A host that starts its runs in a narrow
+        # folder names here what they may still read outside it; dontAsk
+        # refuses everything else outside the cwd. Empty means the cwd only.
+        self.ask_allows = list(ask_allows or [])
         self.max_runs = max_runs
         self.default_timeout = default_timeout
         self.sessions = SessionStore(sessions_path)
@@ -510,7 +515,10 @@ class Engine:
             for pattern in self.write_denies:
                 out += ["Edit(%s)" % pattern, "Write(%s)" % pattern]
         else:
-            out += ["--permission-mode", "dontAsk", "--disallowedTools"] + self.ask_denies
+            out += ["--permission-mode", "dontAsk"]
+            if self.ask_allows:
+                out += ["--allowedTools"] + self.ask_allows
+            out += ["--disallowedTools"] + self.ask_denies
         return out
 
     def run(self, prompt, mode, session, owner, title):

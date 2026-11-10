@@ -145,6 +145,8 @@ offers it as a "Can write" switch in the head when the host passes
 effect from the next message, which carries a line telling Claude writing is
 now allowed (`writeNote` overrides the wording).
 
+`ask_allows` (optional) is a list of permission rules an ask run is allowed beyond its working folder, such as `Read(//srv/app/docs/**)`. A host that starts its runs in a narrow folder uses it to name what they may still read elsewhere; `dontAsk` refuses everything else outside the folder. It never reaches a write or work run. Passing `ask_denies` replaces `ASK_DENIES`, so a host adding denials starts from `ASK_DENIES`.
+
 `work`: does the job in full, permissions bypassed. `engine.Engine.config()`
 only turns this on if the host's own config file says so — a mode that edits
 files across disk should be switched on deliberately, not shipped on.
