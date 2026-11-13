@@ -364,7 +364,7 @@ class Engine:
 
     def __init__(self, default_cwd, config_path, sessions_path,
                  ask_denies=None, max_runs=MAX_RUNS, default_timeout=DEFAULT_TIMEOUT,
-                 write_denies=None, write_allows=None, ask_allows=None):
+                 write_denies=None, write_allows=None, ask_allows=None, ask_tools=None):
         self.default_cwd = default_cwd
         self.config_path = config_path
         self.ask_denies = list(ask_denies or ASK_DENIES)
@@ -376,6 +376,11 @@ class Engine:
         # folder names here what they may still read outside it; dontAsk
         # refuses everything else outside the cwd. Empty means the cwd only.
         self.ask_allows = list(ask_allows or [])
+        # The built-in tools an ask run has at all, passed as `--tools`, so a
+        # tool a later CLI release adds is absent rather than needing a new
+        # denial. None leaves the CLI's own set; [] leaves none. ask_denies
+        # still apply on top of it.
+        self.ask_tools = None if ask_tools is None else list(ask_tools)
         self.max_runs = max_runs
         self.default_timeout = default_timeout
         self.sessions = SessionStore(sessions_path)
@@ -516,6 +521,8 @@ class Engine:
                 out += ["Edit(%s)" % pattern, "Write(%s)" % pattern]
         else:
             out += ["--permission-mode", "dontAsk"]
+            if self.ask_tools is not None:
+                out += ["--tools", ",".join(self.ask_tools)]
             if self.ask_allows:
                 out += ["--allowedTools"] + self.ask_allows
             out += ["--disallowedTools"] + self.ask_denies

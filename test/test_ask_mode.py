@@ -43,5 +43,24 @@ ok("ask_allows never reach a write run", not any(a in write for a in allows))
 work = held.argv("hi", "work", None, cfg, "claude")
 ok("or a work run", not any(a in work for a in allows))
 
+tools = ["Read", "Glob", "Grep"]
+ok("with no ask_tools, an ask run has no --tools", "--tools" not in plain)
+ok("and the command line is unchanged",
+   plain == ["claude", "-p", "hi", "--output-format", "stream-json", "--verbose",
+             "--permission-mode", "dontAsk", "--disallowedTools"] + ASK_DENIES)
+listed = engine(ask_tools=tools).argv("hi", "ask", None, cfg, "claude")
+ok("ask_tools reach an ask run as --tools, exactly that list",
+   listed[listed.index("--tools") + 1] == "Read,Glob,Grep")
+ok("the denials still follow", listed[listed.index("--disallowedTools") + 1:] == ASK_DENIES)
+both = engine(ask_tools=tools, ask_allows=allows).argv("hi", "ask", "x" * 8, cfg, "claude")
+ok("with ask_allows too, both are passed",
+   both[both.index("--tools") + 1] == "Read,Glob,Grep"
+   and both[both.index("--allowedTools") + 1:both.index("--disallowedTools")] == allows)
+none = engine(ask_tools=[]).argv("hi", "ask", None, cfg, "claude")
+ok("an empty ask_tools leaves no tools", none[none.index("--tools") + 1] == "")
+for mode in ("write", "work"):
+    ok("ask_tools never reach a %s run" % mode,
+       "--tools" not in engine(ask_tools=tools).argv("hi", mode, None, cfg, "claude"))
+
 print("\n%d failed" % failed if failed else "\nall checks passed")
 sys.exit(1 if failed else 0)
