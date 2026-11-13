@@ -52,15 +52,19 @@ listed = engine(ask_tools=tools).argv("hi", "ask", None, cfg, "claude")
 ok("ask_tools reach an ask run as --tools, exactly that list",
    listed[listed.index("--tools") + 1] == "Read,Glob,Grep")
 ok("the denials still follow", listed[listed.index("--disallowedTools") + 1:] == ASK_DENIES)
+ok("and MCP servers are off, with none named",
+   "--strict-mcp-config" in listed and "--mcp-config" not in listed)
+ok("with no ask_tools, MCP servers are left alone", "--strict-mcp-config" not in plain)
 both = engine(ask_tools=tools, ask_allows=allows).argv("hi", "ask", "x" * 8, cfg, "claude")
 ok("with ask_allows too, both are passed",
    both[both.index("--tools") + 1] == "Read,Glob,Grep"
    and both[both.index("--allowedTools") + 1:both.index("--disallowedTools")] == allows)
 none = engine(ask_tools=[]).argv("hi", "ask", None, cfg, "claude")
-ok("an empty ask_tools leaves no tools", none[none.index("--tools") + 1] == "")
+ok("an empty ask_tools leaves no tools", none[none.index("--tools") + 1] == ""
+   and "--strict-mcp-config" in none)
 for mode in ("write", "work"):
     ok("ask_tools never reach a %s run" % mode,
-       "--tools" not in engine(ask_tools=tools).argv("hi", mode, None, cfg, "claude"))
+       not {"--tools", "--strict-mcp-config"} & set(engine(ask_tools=tools).argv("hi", mode, None, cfg, "claude")))
 
 print("\n%d failed" % failed if failed else "\nall checks passed")
 sys.exit(1 if failed else 0)

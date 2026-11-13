@@ -376,10 +376,11 @@ class Engine:
         # folder names here what they may still read outside it; dontAsk
         # refuses everything else outside the cwd. Empty means the cwd only.
         self.ask_allows = list(ask_allows or [])
-        # The built-in tools an ask run has at all, passed as `--tools`, so a
-        # tool a later CLI release adds is absent rather than needing a new
-        # denial. None leaves the CLI's own set; [] leaves none. ask_denies
-        # still apply on top of it.
+        # The tools an ask run has at all, passed as `--tools` with
+        # `--strict-mcp-config`, so a tool a later CLI release adds is absent
+        # rather than needing a new denial, and no MCP server is started.
+        # None leaves the CLI's own set and MCP servers; [] leaves no tools.
+        # ask_denies still apply on top of it.
         self.ask_tools = None if ask_tools is None else list(ask_tools)
         self.max_runs = max_runs
         self.default_timeout = default_timeout
@@ -522,7 +523,9 @@ class Engine:
         else:
             out += ["--permission-mode", "dontAsk"]
             if self.ask_tools is not None:
-                out += ["--tools", ",".join(self.ask_tools)]
+                # No --mcp-config with it, so no MCP server starts either and
+                # the list is every tool the run has.
+                out += ["--tools", ",".join(self.ask_tools), "--strict-mcp-config"]
             if self.ask_allows:
                 out += ["--allowedTools"] + self.ask_allows
             out += ["--disallowedTools"] + self.ask_denies
